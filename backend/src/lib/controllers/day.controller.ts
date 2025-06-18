@@ -127,7 +127,6 @@ const addEventToDay = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 };
 
-
 const getEventsOfDay = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
     const { id } = req.query;
@@ -136,7 +135,7 @@ const getEventsOfDay = async (req: NextApiRequest, res: NextApiResponse) => {
       return res.status(400).json({ message: "Invalid Day ID." });
     }
 
-    const day = await Day.findById(id).populate("events.event", "-__v");
+    const day = await Day.findById(id).populate("events.event", "-__v -createdAt -updatedAt -notes -description -message");
     if (!day) {
       return res.status(404).json({ message: "Day not found." });
     }
@@ -168,7 +167,7 @@ const deleteEventFromDay = async (req: NextApiRequest, res: NextApiResponse) => 
     day.events.splice(+eventIndex, 1);
     await day.save();
 
-    return res.status(200).json({ message: "Event deleted successfully", day });
+    return res.status(200).json({ message: "Event deleted successfully" });
   } catch (error) {
     console.error("Error deleting event:", error);
     return res.status(500).json({ message: "Internal Server Error" });
@@ -182,6 +181,21 @@ const updateEventInDay = async (req: NextApiRequest, res: NextApiResponse) => {
 
     if (!dayId || typeof dayId !== "string" || eventIndex === undefined) {
       return res.status(400).json({ message: "Missing dayId or eventIndex." });
+    }
+    if (startTime && !isValidTimeString(startTime)) {
+      return res
+        .status(400)
+        .json({ message: "startTime must be in HH:MM format" });
+    }
+    if (endTime && !isValidTimeString(endTime)) {
+      return res
+        .status(400)
+        .json({ message: "endTime must be in HH:MM format" });
+    }
+    if (startTime && endTime && !isEndTimeAfterStartTime(startTime, endTime)) {
+      return res.status(400).json({
+        message: `endTime (${endTime}) must be after startTime (${startTime})`,
+      });
     }
 
     const day = await Day.findById(dayId);
@@ -202,12 +216,13 @@ const updateEventInDay = async (req: NextApiRequest, res: NextApiResponse) => {
 
     await day.save();
 
-    return res.status(200).json({ message: "Event updated successfully"});
+    return res.status(200).json({ message: "Event updated successfully" });
   } catch (error) {
     console.error("Error updating event:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
 
 
 export { 
