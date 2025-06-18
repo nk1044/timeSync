@@ -1,9 +1,14 @@
-import { Schema, Types, model } from "mongoose";
+import { Schema, Types, model, models } from "mongoose";
 
 const EventSchema = new Schema({
     title: {
         type: String,
         required: true,
+        trim: true
+    },
+    description: {
+        type: String,
+        default: '',
         trim: true
     },
     tag: {
@@ -25,4 +30,4 @@ const EventSchema = new Schema({
     ]
 }, { timestamps: true });
 
-export const Event = model('Event', EventSchema);
+export const Event = models.Event || model('Event', EventSchema);
