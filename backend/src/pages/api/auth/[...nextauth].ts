@@ -1,13 +1,13 @@
 // pages/api/auth/[...nextauth].ts
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { Session } from "next-auth";
+import { JWT } from "next-auth/jwt";
 
-// Extend the Session type to include user.id
+// Extend the Session and JWT types
 declare module "next-auth" {
   interface Session {
     user: {
-      id?: string;
+      id: string;
       name?: string | null;
       email?: string | null;
       image?: string | null;
@@ -15,32 +15,49 @@ declare module "next-auth" {
   }
 }
 
-export const authOptions = {
+declare module "next-auth/jwt" {
+  interface JWT {
+    sub: string;
+  }
+}
+
+export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+  
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  
+  // Add secret explicitly
+  secret: process.env.NEXTAUTH_SECRET,
+  
   callbacks: {
-    async session({ session, token }: { session: import("next-auth").Session; token: any }) {
-      if (session.user) {
-        session.user.id = token.sub; // If you want userId later
+    async jwt({ token, account, user }) {
+      // Initial sign in
+      if (account && user) {
+        return {
+          ...token,
+          accessToken: account.access_token,
+        };
+      }
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (token?.sub) {
+        session.user.id = token.sub;
       }
       return session;
     },
-    async jwt({
-      token,
-      account,
-      user,
-    }: {
-      token: any;
-      account?: any;
-      user?: any;
-    }) {
-      return token;
-    },
   },
+  
+  debug: process.env.NODE_ENV === "development",
 };
 
 export default NextAuth(authOptions);

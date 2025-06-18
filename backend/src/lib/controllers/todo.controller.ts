@@ -1,17 +1,28 @@
 import { Todo } from "../models/todo.model";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { User, AuthenticatedRequest } from "../models/user.model";
 
-const createTodo = async (req: NextApiRequest, res: NextApiResponse) => {
+
+const createTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     try {
         const { title, description, status, reminder, tag } = req.body;
-
+        const user = req.user;
+        if (!user) {
+            return res.status(401).json({ message: "Unauthorized Request, user not found" });
+        }
         if ([title, status, tag].some((field) => !field)) {
             return res.status(400).json({ message: "Title, status, and tag are required." });
+        }
+        console.log("✅Creating todo for user:", user);
+        const currentUser = await User.findOne({ email: user.email });
+        if (!currentUser) {
+            return res.status(404).json({ message: "User not found." });
         }
 
         const newTodo = await Todo.create({
             title: title,
             description: description || "",
+            owner: currentUser._id,
             status: status || "PERSONAL",
             reminder: reminder ? new Date(reminder) : null,
             tag: tag || "NOT_IMPORTANT",
@@ -80,6 +91,7 @@ const updateTodo = async (req: NextApiRequest, res: NextApiResponse) => {
         return res.status(500).json({ message: "Internal Server Error" });
     }
 };
+
 const deleteTodo = async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const { id } = req.query;

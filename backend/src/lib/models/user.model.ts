@@ -1,4 +1,11 @@
 import { Schema, model, models } from "mongoose";
+import type { NextApiRequest } from "next";
+
+export interface AuthenticatedRequest extends NextApiRequest {
+  user: {
+    email: string;
+  };
+}
 
 const UserSchema = new Schema({
     name: {
