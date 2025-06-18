@@ -1,4 +1,4 @@
-import { Schema, model } from "mongoose";
+import { Schema, model, models } from "mongoose";
 
 const TodoSchema = new Schema({
     title: {
@@ -26,4 +26,4 @@ const TodoSchema = new Schema({
     }
 }, { timestamps: true });
 
-export const Todo = model('Todo', TodoSchema);
+export const Todo = models.Todo || model('Todo', TodoSchema);

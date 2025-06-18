@@ -4,24 +4,103 @@ import type { NextApiRequest, NextApiResponse } from "next";
 const createTodo = async (req: NextApiRequest, res: NextApiResponse) => {
     try {
         const { title, description, status, reminder, tag } = req.body;
-        if([title, status, tag].some(field => !field)) {
+
+        if ([title, status, tag].some((field) => !field)) {
             return res.status(400).json({ message: "Title, status, and tag are required." });
         }
+
         const newTodo = await Todo.create({
             title: title,
             description: description || "",
             status: status || "PERSONAL",
             reminder: reminder ? new Date(reminder) : null,
-            tag: tag || "NOT_IMPORTANT"
+            tag: tag || "NOT_IMPORTANT",
         });
-        res.status(201).json({message: "Todo created successfully", todo: newTodo});
+
+        return res.status(201).json({ message: "Todo created successfully", todo: newTodo });
     } catch (error) {
         console.log("Error creating todo:", error);
-        res.status(500).json({ message: "Internal Server Error" });
+        return res.status(500).json({ message: "Internal Server Error" });
     }
-}
+};
 
+const getAllTodo = async (req: NextApiRequest, res: NextApiResponse) => {
+    try {
+        const allTodos = await Todo.find();
+        return res.status(201).json({ message: "All Todos fetched successfully", todo: allTodos });
+    } catch (error) {
+        console.log("Error getting all todo:", error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+};
+
+const getTodoById = async (req: NextApiRequest, res: NextApiResponse) => {
+    try {
+        console.log("Fetching todo with ID");
+        const { id } = req.query;
+        
+        if (!id) {
+            return res.status(400).json({ message: "Todo ID is required." });
+        }
+        const todo = await Todo.findById(id);
+        if (!todo) {
+            return res.status(404).json({ message: "Todo not found." });
+        }
+        return res.status(200).json({ message: "A Todo fetched successfully", todo });
+    } catch (error) {
+        console.log("Error getting todo by ID:", error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+};
+
+const updateTodo = async (req: NextApiRequest, res: NextApiResponse) => {
+    try {
+        const { id } = req.query;
+        const { title, description, status, reminder, tag } = req.body;
+        if (!id) {
+            return res.status(400).json({ message: "Todo ID is required." });
+        }
+        const updatedTodo = await Todo.findByIdAndUpdate(
+            id,
+            {
+                title,
+                description,
+                status,
+                reminder: reminder ? new Date(reminder) : null,
+                tag
+            },
+            { new: true }
+        );
+        if (!updatedTodo) {
+            return res.status(404).json({ message: "Todo not found." });
+        }
+        return res.status(200).json({ message: "Todo updated successfully", todo: updatedTodo });
+    } catch (error) {
+        console.log("Error updating todo:", error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+};
+const deleteTodo = async (req: NextApiRequest, res: NextApiResponse) => {
+    try {
+        const { id } = req.query;
+        if (!id) {
+            return res.status(400).json({ message: "Todo ID is required." });
+        }
+        const deletedTodo = await Todo.findByIdAndDelete(id);
+        if (!deletedTodo) {
+            return res.status(404).json({ message: "Todo not found." });
+        }
+        return res.status(200).json({ message: "Todo deleted successfully", todo: deletedTodo });
+    } catch (error) {
+        console.log("Error deleting todo:", error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+};
 
 export {
     createTodo,
+    getAllTodo,
+    getTodoById,
+    updateTodo,
+    deleteTodo
 }
