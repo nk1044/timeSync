@@ -151,7 +151,7 @@ export default function HomePage() {
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
             <button className="px-8 py-3 cursor-pointer text-neutral-300 hover:text-white border border-neutral-700 rounded-lg hover:border-neutral-600 transition-colors"
-              onClick={() => window.open("https:github.com/nk1044/timesync", "_blank")}>
+              onClick={() => window.open("https://github.com/nk1044/timesync", "_blank")}>
               <Github className="inline-block w-5 h-5 mr-2" />
               Github
             </button>
