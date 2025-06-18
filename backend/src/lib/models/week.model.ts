@@ -18,4 +18,8 @@ const WeekSchema = new Schema<IWeek>({
   }],
 }, { timestamps: true });
 
+if (process.env.NODE_ENV === "development") {
+  delete models.Week;
+}
+
 export const Week = models.Week || model<IWeek>('Week', WeekSchema);

@@ -30,4 +30,8 @@ const EventSchema = new Schema({
     ]
 }, { timestamps: true });
 
+if (process.env.NODE_ENV === "development") {
+  delete models.Event;
+}
+
 export const Event = models.Event || model('Event', EventSchema);

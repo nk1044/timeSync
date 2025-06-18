@@ -1,4 +1,4 @@
-import { Schema, Types, model } from "mongoose";
+import { Schema, Types, model, models } from "mongoose";
 
 const TimeTableSchema = new Schema({
     title: {
@@ -35,4 +35,9 @@ const TimeTableSchema = new Schema({
 
 }, { timestamps: true });
 
-export const TimeTable = model('TimeTable', TimeTableSchema);
+
+if (process.env.NODE_ENV === "development") {
+    delete models.TimeTable;
+}
+
+export const TimeTable = models.TimeTable || model('TimeTable', TimeTableSchema);

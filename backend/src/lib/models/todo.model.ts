@@ -26,4 +26,9 @@ const TodoSchema = new Schema({
     }
 }, { timestamps: true });
 
+
+if (process.env.NODE_ENV === "development") {
+    delete models.Todo;
+}
+
 export const Todo = models.Todo || model('Todo', TodoSchema);
