@@ -20,8 +20,9 @@ const TodoSchema = new Schema({
     },
     tag: {
         type: String,
-        enum: ['important', 'casual'],
-        default: 'casual' 
+        required: true,
+        enum: ['IMPORTANT', 'NOT_IMPORTANT'],
+        default: 'NOT_IMPORTANT' 
     }
 }, { timestamps: true });
 
