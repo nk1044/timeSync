@@ -1,13 +1,38 @@
 import { Schema, model, models } from "mongoose";
 
 const UserSchema = new Schema({
-  name: String,
-  email: { type: String, unique: true },
-  image: String,
-});
+    name: {
+        type: String,
+        required: true,
+        trim: true,
+    },
+    email: {
+        type: String,
+        unique: true,
+        required: true,
+        trim: true,
+    },
+    image:{
+        type: String,
+        trim: true,
+    },
+    todos:[
+        {
+            type: Schema.Types.ObjectId,
+            ref: "Todo",
+        }
+    ],
+    timeTables:[
+        {
+            type: Schema.Types.ObjectId,
+            ref: "TimeTable",
+        }
+    ],
+
+}, {timestamps: true});
 
 if (process.env.NODE_ENV !== "development") {
-  delete models.User;
+    delete models.User;
 }
 
 export const User = models.User || model("User", UserSchema);

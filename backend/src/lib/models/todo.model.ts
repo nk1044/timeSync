@@ -23,6 +23,11 @@ const TodoSchema = new Schema({
         required: true,
         enum: ['IMPORTANT', 'NOT_IMPORTANT'],
         default: 'NOT_IMPORTANT' 
+    },
+    owner:{
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true
     }
 }, { timestamps: true });
 

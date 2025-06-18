@@ -9,6 +9,7 @@ export interface IDay extends Document {
     endTime: string;
     reminderTime?: number;
   }[];
+  owner: Types.ObjectId; // Reference to User
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -26,6 +27,11 @@ const DaySchema = new Schema<IDay>(
     },
     date: {
       type: Date,
+      required: true,
+    },
+    owner: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
       required: true,
     },
     events: {

@@ -27,7 +27,12 @@ const EventSchema = new Schema({
             type: Types.ObjectId,
             ref: 'Todo'
         }
-    ]
+    ],
+    owner: {
+        type: Types.ObjectId,
+        ref: "User",
+        required: true
+    },
 }, { timestamps: true });
 
 if (process.env.NODE_ENV === "development") {
