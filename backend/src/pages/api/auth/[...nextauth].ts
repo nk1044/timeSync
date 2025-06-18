@@ -1,34 +1,46 @@
+// pages/api/auth/[...nextauth].ts
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { connectDB } from "@/lib/config/db";
-import {User } from "@/lib/models/user.model";
+import { Session } from "next-auth";
 
-export default NextAuth({
+// Extend the Session type to include user.id
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id?: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
+  }
+}
+
+export const authOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
-  session: {
-    strategy: "jwt",
-  },
   callbacks: {
-  async signIn({ profile }) {
-    if (!profile) return false;
-
-    await connectDB();
-
-    const userExists = await User.findOne({ email: profile.email });
-    if (!userExists) {
-      await User.create({
-        name: profile.name,
-        email: profile.email,
-        image: profile.image,
-      });
-    }
-
-    return true;
+    async session({ session, token }: { session: import("next-auth").Session; token: any }) {
+      if (session.user) {
+        session.user.id = token.sub; // If you want userId later
+      }
+      return session;
+    },
+    async jwt({
+      token,
+      account,
+      user,
+    }: {
+      token: any;
+      account?: any;
+      user?: any;
+    }) {
+      return token;
+    },
   },
-  },
-});
+};
+
+export default NextAuth(authOptions);

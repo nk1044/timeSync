@@ -1,8 +1,9 @@
 import { connectDB } from "@/lib/config/db";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createWeek, getWeekData, updateWeekMetadata, deleteWeek } from "@/lib/controllers/week.controller";
+import { withAuth } from "@/lib/middleware/authMiddleware";
 
-export default async function handler(
+export default withAuth(async function handler(
     req: NextApiRequest,
     res: NextApiResponse,
 ) {
@@ -25,4 +26,4 @@ export default async function handler(
         console.error("Error in API handler:", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
-}
+});

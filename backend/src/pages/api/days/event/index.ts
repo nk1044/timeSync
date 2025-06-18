@@ -1,7 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { addEventToDay, getEventsOfDay, updateEventInDay, deleteEventFromDay } from "@/lib/controllers/day.controller";
+import { withAuth } from "@/lib/middleware/authMiddleware";
 
-export default async function handler(
+export default withAuth(async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
@@ -23,4 +24,4 @@ export default async function handler(
         console.error("Error in API handler:", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
-}
+});
