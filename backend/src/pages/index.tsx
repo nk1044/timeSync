@@ -146,7 +146,8 @@ export default function HomePage() {
             Streamline your workflow with intelligent scheduling, task prioritization, and productivity insights designed for modern professionals.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button className="group cursor-pointer bg-white text-neutral-900 px-8 py-3 rounded-lg font-medium hover:bg-neutral-100 transition-all duration-200 flex items-center space-x-2">
+            <button className="group cursor-pointer bg-white text-neutral-900 px-8 py-3 rounded-lg font-medium hover:bg-neutral-100 transition-all duration-200 flex items-center space-x-2"
+              onClick={() => router.push("/dashboard")}>
               <span>Get Started</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
