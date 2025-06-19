@@ -16,7 +16,6 @@ Future<void> loginService(BuildContext context, WidgetRef ref) async {
     final dio = ref.read(dioProvider);
     _logger.i('✅ Dio instance created');
 
-    // Use your Web client ID
     final googleSignIn = GoogleSignIn(
       clientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'],
     );
@@ -48,16 +47,45 @@ Future<void> loginService(BuildContext context, WidgetRef ref) async {
     final userJson = response.data['user'];
 
     if (token != null && userJson != null) {
-      ref.read(tokenProvider.notifier).state = token;
+      ref.read(tokenProvider.notifier).setToken(token);
       ref.read(userProvider.notifier).setUser(AppUser.fromJson(userJson));
       _logger.i('✅ User logged in and token stored');
+      if (!context.mounted) return;
+      Navigator.pushReplacementNamed(context, '/');
     } else {
       throw Exception('Missing token or user in response');
     }
   } catch (e) {
     _logger.e('❌ Error during Google Sign-In: $e');
+
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Error signing in: ${e.toString()}')),
+    );
+  }
+}
+
+
+Future<void> logoutService(BuildContext context, WidgetRef ref) async {
+  _logger.i('✅ Logout button pressed');
+  try {
+    await FirebaseAuth.instance.signOut();
+    await ref.read(tokenProvider.notifier).clearToken();
+    await ref.read(userProvider.notifier).clearUser();
+
+    final googleSignIn = GoogleSignIn();
+    await googleSignIn.signOut();
+
+    _logger.i('✅ User logged out successfully');
+
+    if (!context.mounted) return;
+    Navigator.pushReplacementNamed(context, '/login');
+  } catch (e) {
+    _logger.e('❌ Error during logout: $e');
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error logging out: ${e.toString()}')),
     );
   }
 }

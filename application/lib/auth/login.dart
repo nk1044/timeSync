@@ -1,145 +1,181 @@
+import 'dart:ui';
 import 'package:application/server/login_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // ⬅️ Import Riverpod
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 
 final _logger = Logger();
+final loginLoadingProvider = StateProvider<bool>((ref) => false);
 
 class MyLoginPage extends ConsumerWidget {
   const MyLoginPage({super.key});
 
-  void _handleGoogleSignIn(BuildContext context, WidgetRef ref) async {
+  Future<void> _handleGoogleSignIn(BuildContext context, WidgetRef ref) async {
+    final loading = ref.read(loginLoadingProvider.notifier);
+
     try {
-      loginService(context, ref);
-      _logger.i('✅google logged in END');
+      loading.state = true;
+      await loginService(context, ref); // already has context.mounted check inside
+      _logger.i('✅ Google logged in END');
     } catch (e) {
-      _logger.i('Error during Google Sign-In: $e');
+      _logger.e('❌ Error during Google Sign-In: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error signing in: ${e.toString()}')),
+        );
+      }
+    } finally {
+      loading.state = false;
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isLoading = ref.watch(loginLoadingProvider);
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Logo/Brand Section
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 2,
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+      body: Stack(
+        children: [
+          // Background gradient
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFe0eafc), Color(0xFFcfdef3)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+
+          // Frosted glass content
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
                       ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.account_circle_outlined,
-                    size: 64,
-                    color: Color(0xFF4285F4),
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // Welcome Text
-                const Text(
-                  'Welcome Back',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                Text(
-                  'Sign in to continue to your account',
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                  textAlign: TextAlign.center,
-                ),
-
-                const SizedBox(height: 48),
-
-                // Google Sign In Button
-                Container(
-                  width: double.infinity,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.15),
-                        spreadRadius: 1,
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: () => _handleGoogleSignIn(context, ref),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF1A1A1A),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    child: Row(
+                    child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Google Logo
+                        // Avatar Icon
                         Container(
-                          width: 24,
-                          height: 24,
-                          decoration: const BoxDecoration(
-                            image: DecorationImage(
-                              image: NetworkImage(
-                                'https://developers.google.com/identity/images/g-logo.png',
-                              ),
-                              fit: BoxFit.contain,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: const Color.fromARGB(255, 102, 175, 209)
+                                .withOpacity(0.2),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color.fromARGB(255, 169, 225, 237)
+                                  .withOpacity(0.3),
                             ),
                           ),
+                          child: const Icon(
+                            Icons.account_circle_outlined,
+                            size: 64,
+                            color: Color(0xFF4285F4),
+                          ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(height: 32),
+
                         const Text(
-                          'Continue with Google',
+                          'Welcome Back',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Sign in to continue to your account',
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                            color: Color.fromARGB(153, 84, 84, 84),
                           ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 48),
+
+                        // Google Sign In Button
+                        ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () => _handleGoogleSignIn(context, ref),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withOpacity(0.9),
+                            foregroundColor: Colors.black87,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 16, horizontal: 24),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black54,
+                                  ),
+                                )
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Image.network(
+                                      'https://developers.google.com/identity/images/g-logo.png',
+                                      width: 24,
+                                      height: 24,
+                                    ),
+                                    const SizedBox(width: 16),
+                                    const Text(
+                                      'Continue with Google',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+
+                        const SizedBox(height: 32),
+                        const Text(
+                          'By continuing, you agree to our Terms of Service\nand Privacy Policy',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color.fromARGB(153, 84, 84, 84),
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 32),
-
-                // Footer Text
-                Text(
-                  'By continuing, you agree to our Terms of Service\nand Privacy Policy',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

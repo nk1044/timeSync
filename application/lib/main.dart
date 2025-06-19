@@ -1,4 +1,6 @@
+import 'package:application/auth/auth_gate.dart';
 import 'package:application/auth/login.dart';
+import 'package:application/home/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,13 +12,17 @@ final _logger = Logger();
 
 void main() async {
   try {
+    WidgetsFlutterBinding.ensureInitialized();
     await dotenv.load();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    runApp(const ProviderScope(child: MyApp()));
   } catch (e) {
-    _logger.i("❌ Failed to load .env file: $e");
+    _logger.e("❌ Failed to initialize app: $e");
+    // Still run the app even if dotenv fails
+    runApp(const ProviderScope(child: MyApp()));
   }
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -26,10 +32,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Firebase App',
-      home: Scaffold(
-        appBar: AppBar(title: Text('Firebase Initialization')),
-        body: MyLoginPage(),
-      ),
+      debugShowCheckedModeBanner: false,
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const AuthGate(child: MyHomePage()),
+        '/login': (context) => const MyLoginPage(),
+      },
     );
   }
 }
