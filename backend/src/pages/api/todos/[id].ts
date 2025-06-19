@@ -2,10 +2,11 @@ import { connectDB } from "@/lib/config/db";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getTodoById, updateTodo, deleteTodo } from "@/lib/controllers/todo.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
+import type { AuthenticatedRequest } from "@/lib/models/user.model";
 
 export default withAuth(
     async function handler(
-    req: NextApiRequest,
+    req: AuthenticatedRequest,
     res: NextApiResponse
 ) {
     try {

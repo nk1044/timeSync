@@ -1,11 +1,12 @@
-'use client';
-
 import React from 'react';
 import { withDashboardLayout } from '@/components/withDashboardLayout';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { List, Clock, Calendar, ArrowRight, TrendingUp, Target, Plus, BarChart3, Timer, Zap } from 'lucide-react';
 
 function Dashboard() {
+  const router = useRouter();
+
   return (
     <div className="text-white px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
       {/* Hero Section */}
@@ -32,7 +33,8 @@ function Dashboard() {
           <h3 className="text-lg font-semibold text-white">Quick Actions</h3>
         </div>
         
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4"
+        onClick={()=>router.push("/dashboard/todos/create-todo")}>
           <button className="flex items-center gap-3 bg-neutral-800/50 hover:bg-neutral-700/60 border border-neutral-700/50 hover:border-neutral-600/60 rounded-xl px-4 py-4 transition-all duration-200 group hover:scale-[1.02]">
             <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
               <Plus size={16} className="text-blue-400" />

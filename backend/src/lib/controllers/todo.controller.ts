@@ -13,7 +13,7 @@ const createTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
         if ([title, status, tag].some((field) => !field)) {
             return res.status(400).json({ message: "Title, status, and tag are required." });
         }
-        console.log("✅Creating todo for user:", user);
+        // console.log("✅Creating todo for user:", user);
         const currentUser = await User.findOne({ email: user.email });
         if (!currentUser) {
             return res.status(404).json({ message: "User not found." });
@@ -35,9 +35,17 @@ const createTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     }
 };
 
-const getAllTodo = async (req: NextApiRequest, res: NextApiResponse) => {
+const getAllTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     try {
-        const allTodos = await Todo.find();
+        const user = req.user;
+        if (!user) {
+            return res.status(401).json({ message: "Unauthorized Request, user not found" });
+        }
+        const currentUser = await User.findOne({ email: user.email });
+        if (!currentUser) {
+            return res.status(404).json({ message: "User not found in DB" });
+        }
+        const allTodos = await Todo.find({owner: currentUser}).select('-__v -owner');
         return res.status(201).json({ message: "All Todos fetched successfully", todo: allTodos });
     } catch (error) {
         console.log("Error getting all todo:", error);
@@ -45,17 +53,27 @@ const getAllTodo = async (req: NextApiRequest, res: NextApiResponse) => {
     }
 };
 
-const getTodoById = async (req: NextApiRequest, res: NextApiResponse) => {
+const getTodoById = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     try {
-        console.log("Fetching todo with ID");
+        const user = req.user;
+        if (!user) {
+            return res.status(401).json({ message: "Unauthorized Request, user not found" });
+        }
+        const currentUser = await User.findOne({ email: user.email });
+        if (!currentUser) {
+            return res.status(404).json({ message: "User not found in DB" });
+        }
         const { id } = req.query;
         
         if (!id) {
             return res.status(400).json({ message: "Todo ID is required." });
         }
-        const todo = await Todo.findById(id);
+        const todo = await Todo.findById(id).select('-__v');
         if (!todo) {
             return res.status(404).json({ message: "Todo not found." });
+        }
+        if( todo.owner.toString() !== currentUser._id.toString()) {
+            return res.status(403).json({ message: "Forbidden: You do not have access to this todo." });
         }
         return res.status(200).json({ message: "A Todo fetched successfully", todo });
     } catch (error) {
@@ -64,15 +82,30 @@ const getTodoById = async (req: NextApiRequest, res: NextApiResponse) => {
     }
 };
 
-const updateTodo = async (req: NextApiRequest, res: NextApiResponse) => {
+const updateTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     try {
+        const user = req.user;
+        if (!user) {
+            return res.status(401).json({ message: "Unauthorized Request, user not found" });
+        }
+        const currentUser = await User.findOne({ email: user.email });
+        if (!currentUser) {
+            return res.status(404).json({ message: "User not found in DB" });
+        }
         const { id } = req.query;
         const { title, description, status, reminder, tag } = req.body;
         if (!id) {
             return res.status(400).json({ message: "Todo ID is required." });
         }
+        const todo = await Todo.findById(id);
+        if (!todo) {
+            return res.status(404).json({ message: "Todo not found." });
+        }
+        if (todo.owner.toString() !== currentUser._id.toString()) {
+            return res.status(403).json({ message: "Forbidden: You do not have access to this todo." });
+        }
         const updatedTodo = await Todo.findByIdAndUpdate(
-            id,
+            todo._id,
             {
                 title,
                 description,
@@ -92,13 +125,28 @@ const updateTodo = async (req: NextApiRequest, res: NextApiResponse) => {
     }
 };
 
-const deleteTodo = async (req: NextApiRequest, res: NextApiResponse) => {
+const deleteTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     try {
+        const user = req.user;
+        if (!user) {
+            return res.status(401).json({ message: "Unauthorized Request, user not found" });
+        }
+        const currentUser = await User.findOne({ email: user.email });
+        if (!currentUser) {
+            return res.status(404).json({ message: "User not found in DB" });
+        }
         const { id } = req.query;
         if (!id) {
             return res.status(400).json({ message: "Todo ID is required." });
         }
-        const deletedTodo = await Todo.findByIdAndDelete(id);
+        const todo = await Todo.findById(id);
+        if (!todo) {
+            return res.status(404).json({ message: "Todo not found." });
+        }
+        if (todo.owner.toString() !== currentUser._id.toString()) {
+            return res.status(403).json({ message: "Forbidden: You do not have access to this todo." });
+        }
+        const deletedTodo = await Todo.findByIdAndDelete(todo._id);
         if (!deletedTodo) {
             return res.status(404).json({ message: "Todo not found." });
         }
