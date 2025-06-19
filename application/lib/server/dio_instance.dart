@@ -3,11 +3,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final dioProvider = Provider<Dio>((ref) {
-  final dio = Dio(BaseOptions(
-    baseUrl: 'http://localhost:3000/api',
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
-  ));
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: 'http://localhost:3000/api',
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+    ),
+  );
 
   // Add interceptor to dynamically attach Authorization header
   dio.interceptors.add(
@@ -22,8 +24,9 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  // Optional: Log requests/responses
-  dio.interceptors.add(LogInterceptor(responseBody: true));
+  if (true) {
+    dio.interceptors.add(LogInterceptor(responseBody: true));
+  }
 
   return dio;
 });

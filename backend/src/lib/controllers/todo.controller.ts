@@ -37,6 +37,7 @@ const createTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
 
 const getAllTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
     try {
+        console.log("🔍 Fetching all todos for user:", req.user?.email);
         const user = req.user;
         if (!user) {
             return res.status(401).json({ message: "Unauthorized Request, user not found" });
@@ -46,6 +47,10 @@ const getAllTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
             return res.status(404).json({ message: "User not found in DB" });
         }
         const allTodos = await Todo.find({owner: currentUser}).select('-__v -owner');
+        if (!allTodos || allTodos.length === 0) {
+            return res.status(404).json({ message: "No todos found for this user." });
+        }
+        console.log("✅ Todos fetched successfully for user:", user.email);
         return res.status(201).json({ message: "All Todos fetched successfully", todo: allTodos });
     } catch (error) {
         console.log("Error getting all todo:", error);
