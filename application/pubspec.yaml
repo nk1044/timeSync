@@ -38,6 +38,9 @@ dependencies:
   google_sign_in: ^6.3.0
   logger: ^2.5.0
   firebase_auth: ^5.6.0
+  flutter_riverpod: ^2.6.1
+  dio: ^5.8.0+1
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -91,3 +94,5 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+  assets:
+    - .env
