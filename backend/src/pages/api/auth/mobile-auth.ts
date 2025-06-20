@@ -1,18 +1,10 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import jwt from "jsonwebtoken";
-import admin from "firebase-admin";
+import { firebaseAdmin } from "@/lib/firebase/config";
 import { connectDB } from "@/lib/config/db";
 import { User } from "@/lib/models/user.model";
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    }),
-  });
-}
+
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -30,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // ✅ Verify token via Firebase
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await firebaseAdmin.auth().verifyIdToken(idToken);
     const { email, name, picture } = decodedToken;
 
     if (!email) {

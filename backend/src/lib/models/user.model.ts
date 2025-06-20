@@ -29,6 +29,10 @@ const UserSchema = new Schema({
             ref: "Todo",
         }
     ],
+    fcmToken: {
+        type: String,
+        trim: true,
+    },
     timeTables:[
         {
             type: Schema.Types.ObjectId,

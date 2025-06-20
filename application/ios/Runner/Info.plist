@@ -66,5 +66,13 @@
   <string>com.googleusercontent.apps.843432481671-jo5c10pkm72pp1dtoedigvh947l3f7cn</string>
 </array>
 
+<key>FirebaseAppDelegateProxyEnabled</key>
+<false/>
+<key>UIBackgroundModes</key>
+<array>
+  <string>fetch</string>
+  <string>remote-notification</string>
+</array>
+
 </dict>
 </plist>

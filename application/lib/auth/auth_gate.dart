@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:application/auth/login.dart';
 import 'package:application/auth/auth_validation_provider.dart';
 import 'package:logger/logger.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 final _logger = Logger();
 

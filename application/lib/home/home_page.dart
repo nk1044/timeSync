@@ -10,10 +10,14 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
+class _MyHomePageState extends State<MyHomePage> {
   int _currentIndex = 0;
 
-  static const List<Widget> _pages = [MyTimeTable(), MyEvents(), MyTodos()];
+  static const List<Widget> _pages = [
+    MyTimeTable(),
+    MyEvents(),
+    MyTodos(),
+  ];
 
   static const List<String> _titles = ["Timetable", "Events", "Todos"];
 
@@ -22,6 +26,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     Icons.event_rounded,
     Icons.task_alt_rounded,
   ];
+
 
   @override
   Widget build(BuildContext context) {
@@ -33,18 +38,10 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       backgroundColor: isDarkMode
           ? const Color(0xFF0A0A0A)
           : const Color(0xFFF8F9FA),
-      body: Column(
-        children: [
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: _pages[_currentIndex],
-            ),
-          ),
-        ],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        child: _pages[_currentIndex],
       ),
-
-      // Simpler Bottom Navigation Bar
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: isDarkMode

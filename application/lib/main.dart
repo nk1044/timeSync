@@ -7,8 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logger/logger.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 final _logger = Logger();
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  _logger.i('🔔 Background message: ${message.messageId}');
+}
 
 void main() async {
   try {
@@ -17,6 +23,12 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    FirebaseMessaging.onMessage.listen((message) {
+      _logger.i('📥 Foreground message: ${message.notification?.title}');
+    });
+    // iOS: request permission
+    await FirebaseMessaging.instance.requestPermission();
     runApp(const ProviderScope(child: MyApp()));
   } catch (e) {
     _logger.e("❌ Failed to initialize app: $e");
