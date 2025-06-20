@@ -23,16 +23,30 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    
+    // Set up Firebase Messaging
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     FirebaseMessaging.onMessage.listen((message) {
       _logger.i('📥 Foreground message: ${message.notification?.title}');
     });
-    // iOS: request permission
-    await FirebaseMessaging.instance.requestPermission();
+    
+    // Request permissions only
+    final messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
+    );
+    
+    _logger.i('✅ Firebase initialized successfully');
+    
     runApp(const ProviderScope(child: MyApp()));
   } catch (e) {
     _logger.e("❌ Failed to initialize app: $e");
-    // Still run the app even if dotenv fails
     runApp(const ProviderScope(child: MyApp()));
   }
 }

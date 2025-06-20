@@ -17,7 +17,8 @@ export default withAuth(
         }
         const userId = user._id;
         const { token } = req.body;
-
+        console.log('✅token:', token);
+        
         if (!token || !userId) {
             return res.status(400).json({ message: 'Missing token or userId' });
         }
@@ -35,7 +36,7 @@ export default withAuth(
                 return res.status(404).json({ message: 'User not found' });
             }
 
-            res.status(200).json({ message: '✅ FCM token saved', user: updatedUser });
+            res.status(200).json({ message: '✅ FCM token saved'});
         } catch (err) {
             console.error('❌ Error saving FCM token:', err);
             res.status(500).json({ message: 'Internal Server Error' });

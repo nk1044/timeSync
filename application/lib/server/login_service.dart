@@ -1,17 +1,137 @@
 import 'package:application/auth/auth_repository.dart';
 import 'package:application/auth/token_provider.dart';
 import 'package:application/server/dio_instance.dart';
-import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logger/logger.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:logger/logger.dart';
+import 'package:dio/dio.dart';
+import 'dart:io';
 
 final _logger = Logger();
 
+class FCMTokenService {
+  static bool _tokenRegistered = false;
+  static bool _isInitialized = false;
+  
+  static Future<void> initializeFCMToken(Dio dio) async {
+    if (_isInitialized) {
+      _logger.i('📱 FCM already initialized, skipping');
+      return;
+    }
+    
+    try {
+      _isInitialized = true;
+      
+      // Listen for token refresh
+      await FirebaseMessaging.instance.onTokenRefresh.listen((fcmToken) async{
+        _logger.i('🔄 FCM token refreshed: $fcmToken');
+        await _sendTokenToServer(dio, fcmToken);
+      });
+
+      // Try to get initial token
+      await _getAndRegisterToken(dio);
+    } catch (e) {
+      _logger.e('❌ Error initializing FCM token: $e');
+      _isInitialized = false; // Reset on error
+    }
+  }
+
+  static Future<void> _getAndRegisterToken(Dio dio) async {
+    try {
+      String? fcmToken;
+
+      if (Platform.isIOS) {
+        // For iOS, wait for APNS token first
+        _logger.i('📱 iOS detected - waiting for APNS token');
+        
+        bool apnsTokenAvailable = false;
+        
+        // Try to get APNS token with retry logic
+        for (int i = 0; i < 5; i++) {
+          final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+          if (apnsToken != null) {
+            _logger.i('🍎 APNS token available');
+            apnsTokenAvailable = true;
+            break;
+          }
+          _logger.i('⏳ Waiting for APNS token... attempt ${i + 1}');
+          await Future.delayed(Duration(seconds: 1 + i));
+        }
+        
+        // Only proceed if APNS token is available
+        if (!apnsTokenAvailable) {
+          _logger.w('⚠️ APNS token not available after 5 attempts, skipping FCM token registration');
+          // Schedule a retry after longer delay
+          _scheduleRetry(dio);
+          return;
+        }
+        
+        fcmToken = await FirebaseMessaging.instance.getToken();
+      } else {
+        // Android or other platforms
+        fcmToken = await FirebaseMessaging.instance.getToken();
+      }
+
+      if (fcmToken != null && !_tokenRegistered) {
+        await _sendTokenToServer(dio, fcmToken);
+      } else if (fcmToken == null) {
+        _logger.w('⚠️ FCM token is null, scheduling retry');
+        _scheduleRetry(dio);
+      }
+    } catch (e) {
+      _logger.e('❌ Error getting FCM token: $e');
+      // Schedule retry on error
+      _scheduleRetry(dio);
+    }
+  }
+
+  static void _scheduleRetry(Dio dio) {
+    _logger.i('🔄 Scheduling FCM token retry in 10 seconds...');
+    Future.delayed(const Duration(seconds: 10), () async {
+      if (!_tokenRegistered) {
+        _logger.i('♻️ Retrying FCM token registration');
+        await _getAndRegisterToken(dio);
+      }
+    });
+  }
+
+  static Future<void> _sendTokenToServer(Dio dio, String fcmToken) async {
+    try {
+      _logger.i('📬 Sending FCM token to server: ${fcmToken.substring(0, 20)}...');
+      
+      // Fixed: Use correct API endpoint
+      await dio.post(
+        '/users/fcm-token',  // Changed from '/users/fcm-token'
+        data: {'token': fcmToken},
+      );
+      _tokenRegistered = true;
+      _logger.i('✅ FCM token registered successfully');
+    } catch (e) {
+      _logger.e('❌ Error sending FCM token to server: $e');
+      // Don't mark as registered on error, allow retry
+    }
+  }
+
+  // Method to reset registration status (useful for logout/login)
+  static void resetRegistrationStatus() {
+    _tokenRegistered = false;
+    _isInitialized = false;
+    _logger.i('🔄 FCM token registration status reset');
+  }
+
+  // Method to check if user is authenticated before sending token
+  static bool _isUserAuthenticated(Dio dio) {
+    // Check if dio has authorization header or token
+    final headers = dio.options.headers;
+    return headers.containsKey('Authorization') || headers.containsKey('authorization');
+  }
+}
+
+// Updated login service - removed FCM initialization from here
 Future<void> loginService(BuildContext context, WidgetRef ref) async {
   _logger.i('✅ Google Sign-In button pressed');
   try {
@@ -38,8 +158,6 @@ Future<void> loginService(BuildContext context, WidgetRef ref) async {
     final firebaseUser = await FirebaseAuth.instance.signInWithCredential(credential);
     final firebaseIdToken = await firebaseUser.user!.getIdToken();
 
-    _logger.i('✅ Firebase ID Token acquired');
-
     final response = await dio.post(
       '/auth/mobile-auth',
       data: {'idToken': firebaseIdToken},
@@ -53,20 +171,7 @@ Future<void> loginService(BuildContext context, WidgetRef ref) async {
       final user = AppUser.fromJson(userJson);
       ref.read(userProvider.notifier).setUser(user);
       _logger.i('✅ User logged in and token stored');
-      // final fcmToken = await FirebaseMessaging.instance.getToken();
-      // if (fcmToken != null) {
-      //   _logger.i('📬 FCM token retrieved: $fcmToken');
-      //   await dio.post(
-      //     '/users/fcm-token',
-      //     data: {
-      //       'token': fcmToken,// Make sure this is the MongoDB `_id`
-      //     },
-      //   );
-      //   _logger.i('📬 FCM token sent successfully');
-      // } else {
-      //   _logger.w('⚠️ No FCM token retrieved');
-      // }
-      setupFcmToken(dio);
+      
       if (!context.mounted) return;
       Navigator.pushReplacementNamed(context, '/');
     } else {
@@ -99,9 +204,12 @@ Future<void> logoutService(BuildContext context, WidgetRef ref) async {
     await ref.read(tokenProvider.notifier).clearToken();
     await ref.read(userProvider.notifier).clearUser();
 
+    // Step 4: Reset FCM registration status
+    FCMTokenService.resetRegistrationStatus();
+
     _logger.i('🧹 Cleared all stored user data and token');
 
-    // Step 4: Navigate to login
+    // Step 5: Navigate to login
     if (!context.mounted) return;
     Navigator.pushReplacementNamed(context, '/login');
   } catch (e) {
@@ -111,29 +219,5 @@ Future<void> logoutService(BuildContext context, WidgetRef ref) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Error logging out: ${e.toString()}')),
     );
-  }
-}
-
-
-void setupFcmToken(Dio dio) async {
-  final messaging = FirebaseMessaging.instance;
-
-  // Listen to token updates
-  FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-    _logger.i('📬 [onTokenRefresh] New FCM token: $newToken');
-    await dio.post('/users/fcm-token', data: {'token': newToken});
-  });
-
-  try {
-    final token = await messaging.getToken();
-
-    if (token != null) {
-      _logger.i('📬 Initial FCM token: $token');
-      await dio.post('/users/fcm-token', data: {'token': token});
-    } else {
-      _logger.w('⚠️ No FCM token retrieved (yet)');
-    }
-  } catch (e) {
-    _logger.e('❌ Failed to get FCM token: $e');
   }
 }
