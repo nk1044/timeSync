@@ -1,3 +1,4 @@
+import 'package:application/pages/event/event.dart';
 import 'package:flutter/material.dart';
 import 'package:application/pages/timetable/time_table.dart';
 import 'package:application/pages/todo/todo.dart';
@@ -12,12 +13,13 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   int _currentIndex = 0;
 
-  static const List<Widget> _pages = [MyTimeTable(), MyTodos()];
+  static const List<Widget> _pages = [MyTimeTable(), MyEvents(), MyTodos()];
 
-  static const List<String> _titles = ["Timetable", "Todos"];
+  static const List<String> _titles = ["Timetable", "Events", "Todos"];
 
   static const List<IconData> _icons = [
     Icons.schedule_rounded,
+    Icons.event_rounded,
     Icons.task_alt_rounded,
   ];
 

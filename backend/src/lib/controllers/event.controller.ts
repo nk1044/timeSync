@@ -26,7 +26,7 @@ const createEvent = async (req: NextApiRequest, res: NextApiResponse) => {
 };
 const getAllEvents = async (req: NextApiRequest, res: NextApiResponse) => {
     try {
-        const allEvents = await Event.find().select("-__v -createdAt -description -message -updatedAt -notes");
+        const allEvents = await Event.find().select("-__v -description -notes");
         return res.status(200).json({ message: "All Events fetched successfully", events: allEvents });
     } catch (error) {
         console.error("Error getting all events:", error);
