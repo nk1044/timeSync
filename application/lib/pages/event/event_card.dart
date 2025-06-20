@@ -1,12 +1,12 @@
+import 'package:application/pages/event/edit_event.dart';
 import 'package:application/pages/event/event_model.dart';
-import 'package:application/pages/todo/edit_todo.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class EventCard extends StatelessWidget {
   final Event event;
 
-  const EventCard({Key? key, required this.event}) : super(key: key);
+  const EventCard({super.key, required this.event});
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +46,7 @@ class EventCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => EditTodo(todoId: event.id),
+              builder: (_) => EditEvent(eventId: event.id),
             ),
           );
         },

@@ -1,4 +1,5 @@
 import 'package:application/pages/event/event_model.dart';
+import 'package:application/pages/todo/todo_model.dart';
 import 'package:application/server/dio_instance.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,8 +22,10 @@ final eventProvider = FutureProvider<List<Event>>((ref) async {
   }
 });
 
-
-final singleEventProvider = FutureProvider.family<Event, String>((ref, id) async {
+final singleEventProvider = FutureProvider.family<Event, String>((
+  ref,
+  id,
+) async {
   try {
     final dio = ref.watch(dioProvider);
     final res = await dio.get('/events/$id');
@@ -33,6 +36,10 @@ final singleEventProvider = FutureProvider.family<Event, String>((ref, id) async
   }
 });
 
+final eventNotesProvider = FutureProvider.family<List<Todo>, String>((ref, eventId) async {
+  final repo = ref.watch(eventRepositoryProvider);
+  return repo.getNotes(eventId);
+});
 
 
 final eventRepositoryProvider = Provider<EventRepository>((ref) {
@@ -81,6 +88,21 @@ class EventRepository {
       return Event.fromJson(res.data['event']);
     } catch (e) {
       _logger.e('Error updating event: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Todo>> getNotes(String id) async {
+    try {
+      final res = await _dio.get('/events/get-notes?id=$id');
+      _logger.i('message: ${res.data['message']}');
+      final todos = (res.data['todos'] as List)
+          .map((json) => Todo.fromJson(json))
+          .toList();
+      _logger.i('Fetched ${todos.length} notes for event $id');
+      return todos;
+    } catch (e) {
+      _logger.e('Error fetching notes for event $id: $e');
       rethrow;
     }
   }

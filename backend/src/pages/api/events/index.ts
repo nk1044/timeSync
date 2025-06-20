@@ -2,9 +2,10 @@ import { connectDB } from "@/lib/config/db";
 import type { NextApiRequest, NextApiResponse } from "next";
 import {createEvent, getAllEvents} from "@/lib/controllers/event.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
+import { AuthenticatedRequest } from "@/lib/models/user.model";
 
 export default withAuth(async function handler(
-    req: NextApiRequest,
+    req: AuthenticatedRequest,
     res: NextApiResponse,
 ) {
     try {

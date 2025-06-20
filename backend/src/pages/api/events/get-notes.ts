@@ -1,6 +1,6 @@
 import { connectDB } from "@/lib/config/db";
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getEventById, updateEvent, deleteEvent } from "@/lib/controllers/event.controller";
+import { getTodosOfEvent, updateEvent, deleteEvent } from "@/lib/controllers/event.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
 import { AuthenticatedRequest } from "@/lib/models/user.model";
 
@@ -10,10 +10,9 @@ export default withAuth(async function handler(
 ) {
     try {
         await connectDB();
-        
         switch (req.method) {
             case "GET":
-                return await getEventById(req, res);
+                return await getTodosOfEvent(req, res);
             case "PUT":
                 return await updateEvent(req, res);
             case "DELETE":

@@ -27,11 +27,6 @@ class AllEvents extends ConsumerWidget {
           );
         },
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(
-          bottom: 100.0,
-        ), // 👈 Lift FAB above nav bar
-      )
     );
   }
 }
