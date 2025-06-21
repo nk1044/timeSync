@@ -4,7 +4,7 @@ import { withDashboardLayout } from '@/components/withDashboardLayout';
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 const defaultData = {
   title: '',
@@ -61,17 +61,6 @@ function CreateEvent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800">
-      <Toaster
-        reverseOrder={false}
-        toastOptions={{
-          style: {
-            background: '#262626',
-            color: '#fff',
-            border: '1px solid #404040',
-          },
-        }}
-      />
-
       {/* Header */}
       <div className="px-4 sm:px-6 lg:px-8 pt-12 pb-8">
         <div className="max-w-4xl mx-auto text-center mb-12">

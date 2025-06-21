@@ -4,10 +4,10 @@ import { withDashboardLayout } from '@/components/withDashboardLayout';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { ArrowLeft, Save, Trash2 } from 'lucide-react';
-import Loading from '@/components/loading';
-import PopUp from '@/components/popup';
+import Loading from '@/components/tools/loading';
+import PopUp from '@/components/tools/popup';
 
 const defaultData = {
     title: '',
@@ -90,15 +90,6 @@ function EditEvent() {
 
     return (
         <div className="min-h-screen px-4 py-10 text-white">
-            <Toaster
-                toastOptions={{
-                    style: {
-                        background: '#1e1e1e',
-                        color: '#fff',
-                        border: '1px solid #333',
-                    },
-                }}
-            />
             <PopUp
                 isOpen={deleting}
                 title="Delete Event"

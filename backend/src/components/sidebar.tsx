@@ -4,7 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/router';
 import { Home, List, Table, Calendar } from 'lucide-react';
 import clsx from 'clsx';
-import SidebarToolsButton from './SidebarToolsButton';
+import SidebarToolsButton from './tools/SidebarToolsButton';
 
 interface SidebarProps {
   isOpen: boolean;

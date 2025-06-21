@@ -2,11 +2,11 @@
 
 import { withDashboardLayout } from '@/components/withDashboardLayout';
 import React, { useEffect, useState } from 'react';
-import TodoCard from '@/components/TodoCard';
+import TodoCard from '@/components/cards/TodoCard';
 import axios from 'axios';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { useRouter } from 'next/router';
-import Loading from '@/components/loading';
+import Loading from '@/components/tools/loading';
 
 interface Todo {
     _id: string;
@@ -60,7 +60,6 @@ function AllTodos() {
 
     return (
         <div className="px-4 sm:px-6 lg:px-8 py-8 text-white">
-            <Toaster />
 
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">All Todos</h1>
