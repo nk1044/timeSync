@@ -3,8 +3,10 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createTimeTable, getAllTimeTables, updateTimeTableDetails, deleteTimeTable } from "@/lib/controllers/timetable.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
 
+import type { AuthenticatedRequest } from "@/lib/models/user.model";
+
 export default withAuth(async function handler(
-    req: NextApiRequest,
+    req: AuthenticatedRequest,
     res: NextApiResponse,
 ) {
     try {

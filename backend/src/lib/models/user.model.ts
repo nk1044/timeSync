@@ -7,6 +7,16 @@ export interface AuthenticatedRequest extends NextApiRequest {
   };
 }
 
+export interface IUser {
+    _id: string;
+    name: string;
+    email: string;
+    image?: string;
+    todos: string[];
+    fcmToken?: string;
+    timeTables: string[];
+}
+
 const UserSchema = new Schema({
     name: {
         type: String,

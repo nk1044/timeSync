@@ -3,11 +3,19 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { createWeekWithDays } from "./week.controller";
 import { Day } from "../models/day.model";
 import { Week } from "../models/week.model";
+import { AuthenticatedRequest, User } from '@/lib/models/user.model';
+import { logger } from "../config/logger";
 
-const createTimeTable = async (req: NextApiRequest, res: NextApiResponse) => {
+
+const createTimeTable = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
     const { title, description, status, lifetime } = req.body;
-
+    const user = req.user;
+    if (!user) {
+      logger.warn("❌ Unauthorized Request, user not found");
+      return res.status(401).json({ message: "Unauthorized Request, user not found" });
+    }
+    const currentUser = await User.findOne({ email: user.email });
     if (
       typeof title !== "string" ||
       typeof status !== "string" ||
@@ -18,8 +26,8 @@ const createTimeTable = async (req: NextApiRequest, res: NextApiResponse) => {
 
     // Create standard and ongoing weeks with their days
     const [standardWeekResult, ongoingWeekResult] = await Promise.all([
-      createWeekWithDays("Standard Week"),
-      createWeekWithDays("Ongoing Week"),
+      createWeekWithDays("Standard Week", currentUser),
+      createWeekWithDays("Ongoing Week", currentUser),
     ]);
 
     if (!standardWeekResult || !ongoingWeekResult) {
@@ -35,6 +43,7 @@ const createTimeTable = async (req: NextApiRequest, res: NextApiResponse) => {
       description: description?.trim() || "",
       status: status.trim().toUpperCase(),
       lifetime: new Date(lifetime),
+      owner: currentUser._id,
       standardWeek: standardWeek._id,
       ongoingWeek: ongoingWeek._id,
     });
@@ -52,23 +61,39 @@ const createTimeTable = async (req: NextApiRequest, res: NextApiResponse) => {
       },
     });
   } catch (error) {
-    console.error("Error creating timetable:", error);
+    logger.error("Error creating timetable:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-const updateTimeTableDetails = async (req: NextApiRequest, res: NextApiResponse) => {
+const updateTimeTableDetails = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
     const { id } = req.query;
     const { title, description, status, lifetime } = req.body;
+    const user = req.user;
+    if (!user) {
+      logger.warn("❌ Unauthorized Request, user not found");
+      return res.status(401).json({ message: "Unauthorized Request, user not found" });
+    }
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
+      logger.warn("❌ User not found for update operation");
+      return res.status(404).json({ message: "User not found." });
+    }
 
     if (!id || typeof id !== "string") {
+      logger.warn("❌ Timetable ID is required for update operation");
       return res.status(400).json({ message: "Timetable ID is required." });
     }
 
     const timetable = await TimeTable.findById(id);
     if (!timetable) {
+      logger.warn(`❌ Timetable with ID ${id} not found for update operation`);
       return res.status(404).json({ message: "Timetable not found." });
+    }
+    if (timetable.owner.toString() !== currentUser._id.toString()) {
+      logger.warn(`❌ User ${currentUser._id} does not have permission to update timetable ${id}`);
+      return res.status(403).json({ message: "You do not have permission to update this timetable." });
     }
 
     if (typeof title === "string") timetable.title = title.trim();
@@ -99,17 +124,32 @@ const updateTimeTableDetails = async (req: NextApiRequest, res: NextApiResponse)
   }
 };
 
-const rotateOngoingWeek = async (req: NextApiRequest, res: NextApiResponse) => {
+const rotateOngoingWeek = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
     const { id } = req.query;
-
+    const user = req.user;
+    if (!user) {
+      logger.warn("❌ Unauthorized Request, user not found");
+      return res.status(401).json({ message: "Unauthorized Request, user not found" });
+    }
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
+      logger.warn("❌ User not found for update operation");
+      return res.status(404).json({ message: "User not found." });
+    }
     if (!id || typeof id !== "string") {
+      logger.warn("❌ Timetable ID is required for ongoing week rotation");
       return res.status(400).json({ message: "Timetable ID is required." });
     }
 
     const timetable = await TimeTable.findById(id).populate("ongoingWeek standardWeek");
     if (!timetable || !timetable.ongoingWeek || !timetable.standardWeek) {
+      logger.warn(`❌ Timetable with ID ${id} or its required weeks not found for ongoing week rotation`);
       return res.status(404).json({ message: "Timetable or required weeks not found." });
+    }
+    if (timetable.owner.toString() !== currentUser[0]._id.toString()) {
+      logger.warn(`❌ User ${currentUser[0]._id} does not have permission to rotate ongoing week for timetable ${id}`);
+      return res.status(403).json({ message: "You do not have permission to rotate the ongoing week." });
     }
 
     const standardWeek = timetable.standardWeek as any;
@@ -118,7 +158,12 @@ const rotateOngoingWeek = async (req: NextApiRequest, res: NextApiResponse) => {
     const originalDays = await Day.find({ _id: { $in: standardWeek.days } });
     const newDays = await Promise.all(
       originalDays.map(orig =>
-        Day.create({ name: orig.name, date: orig.date, events: orig.events })
+        Day.create({ 
+          name: orig.name, 
+          date: orig.date, 
+          events: orig.events,
+          owner: currentUser._id
+        })
       )
     );
 
@@ -126,6 +171,7 @@ const rotateOngoingWeek = async (req: NextApiRequest, res: NextApiResponse) => {
     const newOngoingWeek = await Week.create({
       metadata: "Ongoing Week",
       days: newDays.map(day => day._id),
+      owner: currentUser._id,
     });
 
     // Optional: store history
@@ -145,21 +191,32 @@ const rotateOngoingWeek = async (req: NextApiRequest, res: NextApiResponse) => {
       },
     });
   } catch (error) {
-    console.error("Error rotating ongoing week:", error);
+    logger.error(`Error rotating ongoing week: ${error}`);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-const deleteTimeTable = async (req: NextApiRequest, res: NextApiResponse) => {
+const deleteTimeTable = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
     const { id } = req.query;
-
+    const user = req.user;
+    if (!user) {
+      logger.warn("❌ Unauthorized Request, user not found");
+      return res.status(401).json({ message: "Unauthorized Request, user not found" });
+    }
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
+      logger.warn("❌ User not found for update operation");
+      return res.status(404).json({ message: "User not found." });
+    }
     if (!id || typeof id !== "string") {
+      logger.warn("❌ Timetable ID is required for deletion");
       return res.status(400).json({ message: "Timetable ID is required." });
     }
 
     const timetable = await TimeTable.findById(id);
     if (!timetable) {
+      logger.warn(`❌ Timetable with ID ${id} not found for deletion`);
       return res.status(404).json({ message: "Timetable not found." });
     }
 
@@ -188,14 +245,24 @@ const deleteTimeTable = async (req: NextApiRequest, res: NextApiResponse) => {
       deletedId: id,
     });
   } catch (error) {
-    console.error("Error deleting timetable:", error);
+    logger.error("Error deleting timetable:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-const getAllTimeTables = async (req: NextApiRequest, res: NextApiResponse) => {
+const getAllTimeTables = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
-    const timetables = await TimeTable.find({})
+    const user = req.user;
+    if (!user) {
+      logger.warn("❌ Unauthorized Request, user not found");
+      return res.status(401).json({ message: "Unauthorized Request, user not found" });
+    }
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
+      logger.warn("❌ User not found for update operation");
+      return res.status(404).json({ message: "User not found." });
+    }
+    const timetables = await TimeTable.find({owner: currentUser._id})
       .select("title description status lifetime standardWeek ongoingWeek")
       .lean();
 
@@ -214,16 +281,16 @@ const getAllTimeTables = async (req: NextApiRequest, res: NextApiResponse) => {
       timetables: sanitizedTimetables,
     });
   } catch (error) {
-    console.error("Error fetching timetables:", error);
+    logger.error("Error fetching timetables:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
 
-export { 
-    createTimeTable,
-    updateTimeTableDetails,
-    rotateOngoingWeek,
-    deleteTimeTable,
-    getAllTimeTables
+export {
+  createTimeTable,
+  updateTimeTableDetails,
+  rotateOngoingWeek,
+  deleteTimeTable,
+  getAllTimeTables
 };
