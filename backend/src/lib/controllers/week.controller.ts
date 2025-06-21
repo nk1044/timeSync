@@ -351,7 +351,7 @@ const getACompleteWeekData = async (req: AuthenticatedRequest, res: NextApiRespo
         populate: {
           path: 'events.event',
           model: 'Event',
-          select: 'title tag message',
+          select: 'title tag message startTime endTime',
         },
       })
       .select('-__v')
@@ -365,21 +365,26 @@ const getACompleteWeekData = async (req: AuthenticatedRequest, res: NextApiRespo
       return res.status(403).json({ message: "Unauthorized access to this week." });
     }
     const cleanDays = (week.days as any[]).map((day) => ({
+      _id: day._id,
       name: day.name,
       date: day.date,
       events: (day.events || []).map((entry: any) => {
         const event = entry.event;
         return event && typeof event === 'object'
           ? {
+              _id: event._id,
               title: event.title,
               tag: event.tag,
               message: event.message,
+              startTime: entry.startTime, // from Day.events
+              endTime: entry.endTime,
             }
           : null;
       }).filter(Boolean), // remove nulls
     }));
 
     const cleanWeek = {
+      _id: week._id,
       metadata: week.metadata,
       createdAt: week.createdAt,
       updatedAt: week.updatedAt,
