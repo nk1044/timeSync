@@ -1,10 +1,12 @@
 import { TimeTable } from "../models/timetable.model";
 import { NextApiRequest, NextApiResponse } from "next";
 import { createWeekWithDays } from "./week.controller";
-import { Day } from "../models/day.model";
+import { Day, IDay } from "../models/day.model";
 import { Week } from "../models/week.model";
 import { AuthenticatedRequest, User } from '@/lib/models/user.model';
 import { logger } from "../config/logger";
+import { PopulatedTimetable, TimetableDay, TimetableFetchedResponse } from "./interfaces";
+
 
 
 const createTimeTable = async (req: AuthenticatedRequest, res: NextApiResponse) => {
@@ -62,6 +64,61 @@ const createTimeTable = async (req: AuthenticatedRequest, res: NextApiResponse) 
     });
   } catch (error) {
     logger.error("Error creating timetable:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+const getATimeTableByID = async (req: AuthenticatedRequest, res: NextApiResponse) => {
+  try {
+    const { id } = req.query;
+    const user = req.user;
+    logger.info(`Fetching timetable with ID: ${id}, User: ${user}`);
+    if (!user) {
+      logger.warn("❌ Unauthorized Request, user not found");
+      return res.status(401).json({ message: "Unauthorized Request, user not found or token may not be valid" });
+    }
+    
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
+      logger.warn("❌ User not found for fetching timetable");
+      return res.status(404).json({ message: "User not found." });
+    }
+    logger.info(`Current user found: ${currentUser._id}`);
+    if (!id) {
+      logger.warn("❌ Timetable ID is required for fetching");
+      return res.status(400).json({ message: "Timetable ID is required." });
+    }
+    
+    const timetable = await TimeTable.findById(id);
+    logger.info(`Fetched timetable:`, timetable);
+    if (!timetable) {
+      logger.warn(`❌ Timetable with ID ${id} not found`);
+      return res.status(404).json({ message: "Timetable not found." });
+    }
+    
+    if (timetable.owner.toString() !== currentUser._id.toString()) {
+      logger.warn(`❌ User ${currentUser._id} does not have permission to access timetable ${id}`);
+      return res.status(403).json({ message: "You do not have permission to access this timetable." });
+    }
+
+    const response = {
+      message: "Timetable fetched successfully",
+      timetable: {
+        _id: timetable._id,
+        title: timetable.title,
+        description: timetable.description,
+        status: timetable.status,
+        lifetime: timetable.lifetime,
+        standardWeek: timetable.standardWeek._id,
+        ongoingWeek: timetable.ongoingWeek._id,
+      },
+    };
+    logger.info("Timetable fetched successfully:", response);
+
+    return res.status(200).json(response);
+  } catch (error) {
+    // logger.error(`Error fetching timetable by ID: ${error}`);
+    console.error(`Error fetching timetable by ID: ${error}`);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -292,5 +349,6 @@ export {
   updateTimeTableDetails,
   rotateOngoingWeek,
   deleteTimeTable,
-  getAllTimeTables
+  getAllTimeTables,
+  getATimeTableByID
 };

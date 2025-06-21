@@ -1,6 +1,7 @@
 import { Schema, Types, model, models, Document } from "mongoose";
 
 export interface IDay extends Document {
+  _id: Types.ObjectId;
   name: | "SUNDAY" | "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY";
   date: Date;
   events: {
