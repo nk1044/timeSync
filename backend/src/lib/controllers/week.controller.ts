@@ -327,6 +327,75 @@ const copyWeek = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   }
 };
 
+const getACompleteWeekData = async (req: AuthenticatedRequest, res: NextApiResponse) => {
+  try {
+    const { weekId } = req.query;
+    const user = req.user;
+    if (!user) {
+      logger.warn("❌ Unauthorized Request, user not found");
+      return res.status(401).json({ message: "Unauthorized Request, user not found" });
+    }
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
+      logger.warn("❌ User not found for fetching complete week data");
+      return res.status(404).json({ message: "User not found." });
+    }
+    if (!weekId || typeof weekId !== "string") {
+      logger.warn("❌ weekId is required for fetching complete week data");
+      return res.status(400).json({ message: "weekId is required." });
+    }
+    const week = await Week.findById(weekId)
+      .populate({
+        path: 'days',
+        select: 'name date owner events',
+        populate: {
+          path: 'events.event',
+          model: 'Event',
+          select: 'title tag message',
+        },
+      })
+      .select('-__v')
+      .lean();
+    if (!week) {
+      logger.warn(`❌ Week with ID ${weekId} not found for fetching complete data`);
+      return res.status(404).json({ message: "Week not found." });
+    }
+    if (Array.isArray(week) || !week.owner || currentUser._id.toString() !== week.owner.toString()) {
+      logger.warn(`❌ Unauthorized access to week with ID ${weekId} by user ${user.email}`);
+      return res.status(403).json({ message: "Unauthorized access to this week." });
+    }
+    const cleanDays = (week.days as any[]).map((day) => ({
+      name: day.name,
+      date: day.date,
+      events: (day.events || []).map((entry: any) => {
+        const event = entry.event;
+        return event && typeof event === 'object'
+          ? {
+              title: event.title,
+              tag: event.tag,
+              message: event.message,
+            }
+          : null;
+      }).filter(Boolean), // remove nulls
+    }));
+
+    const cleanWeek = {
+      metadata: week.metadata,
+      createdAt: week.createdAt,
+      updatedAt: week.updatedAt,
+      days: cleanDays,
+    };
+
+    return res.status(200).json({
+      week: cleanWeek,
+      message: 'Week data fetched successfully',
+    });
+  } catch (error) {
+    logger.error("Error fetching complete week data:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
 export {
   createWeek,
   getDayByName,
@@ -334,5 +403,6 @@ export {
   updateWeekMetadata,
   deleteWeek,
   copyWeek,
-  createWeekWithDays
+  createWeekWithDays,
+  getACompleteWeekData
 };

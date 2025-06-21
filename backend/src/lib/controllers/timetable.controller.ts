@@ -83,14 +83,12 @@ const getATimeTableByID = async (req: AuthenticatedRequest, res: NextApiResponse
       logger.warn("❌ User not found for fetching timetable");
       return res.status(404).json({ message: "User not found." });
     }
-    logger.info(`Current user found: ${currentUser._id}`);
     if (!id) {
       logger.warn("❌ Timetable ID is required for fetching");
       return res.status(400).json({ message: "Timetable ID is required." });
     }
     
     const timetable = await TimeTable.findById(id);
-    logger.info(`Fetched timetable:`, timetable);
     if (!timetable) {
       logger.warn(`❌ Timetable with ID ${id} not found`);
       return res.status(404).json({ message: "Timetable not found." });
@@ -113,7 +111,6 @@ const getATimeTableByID = async (req: AuthenticatedRequest, res: NextApiResponse
         ongoingWeek: timetable.ongoingWeek._id,
       },
     };
-    logger.info("Timetable fetched successfully:", response);
 
     return res.status(200).json(response);
   } catch (error) {
