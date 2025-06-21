@@ -14,7 +14,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate }) => {
   const router = useRouter();
 
   const sideBarContent = [
-    { title: 'Home', icon: <Home size={20} />, link: '/' },
+    { title: 'Home', icon: <Home size={20} />, link: '/dashboard' },
     { title: 'Todos', icon: <List size={20} />, link: '/dashboard/todos' },
     { title: 'Events', icon: <Calendar size={20} />, link: '/dashboard/events' },
     { title: 'TimeTable', icon: <Table size={20} />, link: '/dashboard/timetable' },
