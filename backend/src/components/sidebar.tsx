@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/router';
 import { Home, List, Table, Calendar } from 'lucide-react';
 import clsx from 'clsx';
+import SidebarToolsButton from './SidebarToolsButton';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -26,31 +27,35 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate }) => {
   };
 
   return (
-    <aside className="flex flex-col h-full bg-neutral-900 border-r border-neutral-800 transition-all duration-300 overflow-hidden">
-  {/* Scrollable inner content */}
-  <div className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
-    {sideBarContent.map((item, idx) => (
-      <div
-        key={idx}
-        onClick={() => handleNav(item.link)}
-        className="flex items-center gap-3 px-3 py-3 text-white hover:bg-neutral-700 rounded-lg cursor-pointer transition-all group"
-      >
-        <div className="text-neutral-300 group-hover:text-white">{item.icon}</div>
-        {isOpen && (
-          <span className="text-md text-neutral-200 group-hover:text-white transition-colors">
-            {item.title}
-          </span>
-        )}
+    <aside className="relative flex flex-col h-full bg-neutral-900 border-r border-neutral-800 transition-all duration-300 overflow-hidden">
+      {/* Scrollable content with bottom padding to avoid overlap */}
+      <div className="flex-1 overflow-y-auto px-2 py-4 pb-20 space-y-1">
+        {sideBarContent.map((item, idx) => (
+          <div
+            key={idx}
+            onClick={() => handleNav(item.link)}
+            className={clsx(
+              "flex items-center gap-3 px-3 py-3 text-white hover:bg-neutral-700 rounded-lg cursor-pointer transition-all group",
+              router.pathname === item.link && "bg-neutral-700"
+            )}
+          >
+            <div className="text-neutral-300 group-hover:text-white">{item.icon}</div>
+            {isOpen && (
+              <span className="text-md text-neutral-200 group-hover:text-white transition-colors">
+                {item.title}
+              </span>
+            )}
+          </div>
+        ))}
       </div>
-    ))}
-  </div>
 
-  {/* Footer stays at the bottom */}
-  <div className="p-4 border-t border-neutral-800 text-center text-xs text-neutral-600">
-    {isOpen && <span>© 2025 timeSync</span>}
-  </div>
-</aside>
-
+      {/* Absolute positioned tools button at bottom */}
+      {isOpen && (
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-neutral-800 bg-neutral-900">
+          <SidebarToolsButton />
+        </div>
+      )}
+    </aside>
   );
 };
 
