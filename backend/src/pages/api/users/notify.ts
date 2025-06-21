@@ -1,8 +1,9 @@
 import { connectDB } from "@/lib/config/db";
 import {sendNotification} from "@/lib/notification/service";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { AuthenticatedRequest } from "@/lib/models/user.model";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     if (req.method !== "POST") return res.status(405).json({ message: "Method Not Allowed" });
     await connectDB();
     const { token, title, body } = req.body;

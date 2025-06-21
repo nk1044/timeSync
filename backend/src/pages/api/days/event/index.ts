@@ -1,9 +1,10 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { addEventToDay, getEventsOfDay, updateEventInDay, deleteEventFromDay } from "@/lib/controllers/day.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
+import { AuthenticatedRequest } from "@/lib/models/user.model";
 
 export default withAuth(async function handler(
-    req: NextApiRequest,
+    req: AuthenticatedRequest,
     res: NextApiResponse
 ) {
     try {

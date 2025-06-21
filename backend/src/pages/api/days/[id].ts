@@ -2,9 +2,10 @@ import { connectDB } from "@/lib/config/db";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { updateDay, getDayById } from "@/lib/controllers/day.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
+import { AuthenticatedRequest } from "@/lib/models/user.model";
 
 export default withAuth(async function handler(
-    req: NextApiRequest,
+    req: AuthenticatedRequest,
     res: NextApiResponse
 ) {
     try {
