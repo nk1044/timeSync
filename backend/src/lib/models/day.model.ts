@@ -3,7 +3,7 @@ import { Schema, Types, model, models, Document } from "mongoose";
 export interface IDay extends Document {
   _id: Types.ObjectId;
   name: | "SUNDAY" | "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY";
-  date: Date;
+  date: string;
   events: {
     event: Types.ObjectId;
     startTime: string;
@@ -27,7 +27,7 @@ const DaySchema = new Schema<IDay>(
       default: "SUNDAY",
     },
     date: {
-      type: Date,
+      type: String,
       required: true,
     },
     owner: {
@@ -48,24 +48,22 @@ const DaySchema = new Schema<IDay>(
     },
   },{timestamps: true,});
 
-const normalizeTime = (value: string): string => {
-  try {
-    const date = new Date(value);
-    if (!isNaN(date.getTime())) {
-      return date.toISOString().slice(11, 16);
-    }
-  } catch {
-    console.log("Invalid date format, using default time.");
-  }
-  if (/^\d{2}:\d{2}$/.test(value)) {
-    return value;
-  }
-  return "09:00";
+
+export interface NormalizeDateOnly {
+  (date: Date | string): string;
+}
+
+export const normalizeDateOnly: NormalizeDateOnly = function(date: Date | string): string {
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "";
+
+  return d.toISOString().split("T")[0]; // returns "YYYY-MM-DD"
 };
 
 
 DaySchema.pre<IDay>("save", function (next) {
   this.name = this.name.toUpperCase() as IDay["name"];
+  this.date = normalizeDateOnly(this.date);
   next();
 });
 

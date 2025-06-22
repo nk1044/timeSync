@@ -43,12 +43,6 @@ const UserSchema = new Schema({
         type: String,
         trim: true,
     },
-    timeTables:[
-        {
-            type: Schema.Types.ObjectId,
-            ref: "TimeTable",
-        }
-    ],
 
 }, {timestamps: true});
 

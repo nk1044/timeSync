@@ -1,5 +1,5 @@
 import { connectDB } from "@/lib/config/db";
-import type { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiResponse } from "next";
 import { createWeek, getWeekData, updateWeekMetadata, deleteWeek } from "@/lib/controllers/week.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
 import { AuthenticatedRequest } from "@/lib/models/user.model";

@@ -1,6 +1,6 @@
 import { connectDB } from "@/lib/config/db";
-import type { NextApiRequest, NextApiResponse } from "next";
-import { createDay, getAllDays } from "@/lib/controllers/day.controller";
+import type { NextApiResponse } from "next";
+import {getDayByDate} from "@/lib/controllers/day.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
 import { AuthenticatedRequest } from "@/lib/models/user.model";
 
@@ -12,13 +12,10 @@ export default withAuth(async function handler(
         await connectDB();
 
         switch (req.method) {
-            case "POST":
-                return await createDay(req, res);
             case "GET":
-                return await getAllDays(req, res);
-
+                return await getDayByDate(req, res);
             default:
-                res.setHeader("Allow", ["POST"]);
+                res.setHeader("Allow", ["GET"]);
                 return res.status(405).end(`Method ${req.method} Not Allowed`);
         }
     } catch (error) {

@@ -1,93 +1,46 @@
-import { Day, IDay } from "@/lib/models/day.model";
 import { Week } from "@/lib/models/week.model";
-import { NextApiRequest, NextApiResponse } from "next";
-import { User, IUser , AuthenticatedRequest} from "@/lib/models/user.model";
+import {NextApiResponse } from "next";
+import { User , AuthenticatedRequest} from "@/lib/models/user.model";
 import { logger } from "../config/logger";
+import { isValidTimeString, isEndTimeAfterStartTime } from "@/lib/controllers/config";
 
-const getCurrentWeekDates = (): { name: string; date: Date }[] => {
-  const dayNames = [
-    "SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY",
-  ];
-
-  const today = new Date();
-  const currentDayIndex = today.getDay();
-
-  const sunday = new Date(today);
-  sunday.setDate(today.getDate() - currentDayIndex);
-  sunday.setHours(0, 0, 0, 0);
-
-  return dayNames.map((name, index) => {
-    const date = new Date(sunday);
-    date.setDate(sunday.getDate() + index);
-    return { name, date };
-  });
-};
-
-const createWeekWithDays = async (metadata: string, owner: IUser) => {
-  try {
-    const weekDays = getCurrentWeekDates();
-    const createdDays = await Promise.all(
-      weekDays.map(({ name, date }) => Day.create({ 
-        name: name.toUpperCase(), 
-        date: date,
-        owner: owner._id, // Associate the day with the owner 
-      }))
-    );
-    const newWeek = await Week.create({
-      metadata: metadata.trim(),
-      days: createdDays.map(day => day._id),
-      owner: owner._id,
-    });
-    if (!newWeek) {
-      console.log("Failed to create week");
-      return null;
-    }
-    return { newWeek, createdDays };
-  } catch (error) {
-    console.error("Error creating week and days:", error);
-    return null;
-  }
-};
 
 const createWeek = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
     const { metadata } = req.body;
     const user = req.user;
+    logger.info(`🔍 Creating week for user: ${user?.email}`);
     if (!user) {
       console.warn("❌ Unauthorized Request, user not found");
       return res.status(401).json({ message: "Unauthorized Request, user not found" });
     }
-    const currentUser = await User.find({ email: user.email });
-    if (!currentUser || !currentUser.length) {
-      return res.status(404).json({ message: "User not found." });
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
+      logger.info(currentUser);
+      logger.warn("❌ User not found in db for creating week");
+      return res.status(404).json({ message: "User not found in db" });
     }
 
     if (!metadata || typeof metadata !== "string") {
       return res.status(400).json({ message: "metadata is required." });
     }
 
-    const newWeekData = await createWeekWithDays(metadata, currentUser[0]);
-    if (!newWeekData) {
-      return res.status(500).json({ message: "Failed to create week and days." });
+   const weekExists = await Week.findOne({ owner: currentUser._id });
+    if (weekExists) {
+      logger.warn(`❌ Week already exists for user ${user.email}`);
+      return res.status(400).json({ message: "Week already exists for this user." });
     }
-    const { newWeek, createdDays } = newWeekData;
 
-    const cleanDays = createdDays.map(day => ({
-      _id: day._id,
-      name: day.name,
-      date: day.date,
-    }));
-
-    const cleanWeek = {
-      _id: newWeek._id,
-      metadata: newWeek.metadata,
-      days: cleanDays.map(day => day._id),
-    };
-    return res.status(201).json({
-      message: "Week created successfully",
-      week: cleanWeek,
+    const createdWeek = await Week.create({
+      metadata: metadata.trim(),
+      owner: currentUser._id,
     });
-
+    if(!createdWeek) {
+      logger.warn(`❌ Failed to create week for user ${user.email}`);
+      return res.status(500).json({ message: "Failed to create week." });
+    }
+    logger.info(`✅ Week created successfully for user ${user.email}`);
+    return res.status(201).json({message: "Week created successfully👍", week: createdWeek});
   } catch (error) {
     logger.error("Error creating week:", error);
     return res.status(500).json({ message: "Internal Server Error" });
@@ -96,35 +49,35 @@ const createWeek = async (req: AuthenticatedRequest, res: NextApiResponse) => {
 
 const getDayByName = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
-    const { weekId, name } = req.query;
+    const {name } = req.query;
     const user = req.user;
     if (!user) {
       logger.warn("❌ Unauthorized Request, user not found");
       return res.status(401).json({ message: "Unauthorized Request, user not found" });
     }
-    const currentUser = await User.find({ email: user.email });
-    if (!currentUser || !currentUser.length) {
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
       logger.warn("❌ User not found for update operation");
       return res.status(404).json({ message: "User not found." });
     }
 
-    if (!weekId || typeof weekId !== "string" || !name || typeof name !== "string") {
+    if (!name || typeof name !== "string") {
       logger.warn("❌ weekId and name are required for fetching day");
       return res.status(400).json({ message: "weekId and name are required." });
     }
 
-    const week = await Week.findById(weekId).populate({
-      path: "days",
-      match: { name: name.toUpperCase() },
+    const week = await Week.findOne({ owner: currentUser._id }).populate({
+      path: `${name}.events.event`,
       select: "-__v -createdAt -updatedAt",
     });
+
     if(currentUser[0]._id.toString() !== week?.owner.toString()) {
-      logger.warn(`❌ Unauthorized access to week with ID ${weekId} by user ${user.email}`);
+      logger.warn(`❌ Unauthorized access to week with name: ${name} by user ${user.email}`);
       return res.status(403).json({ message: "Unauthorized access to this week." });
     }
 
     if (!week || !week.days.length) {
-      logger.warn(`❌ No day named '${name}' found in week with ID ${weekId}`);
+      logger.warn(`❌ No day named '${name}' found in week with ID ${name}`);
       return res.status(404).json({ message: `No day named '${name}' found in this week.` });
     }
 
@@ -135,80 +88,225 @@ const getDayByName = async (req: AuthenticatedRequest, res: NextApiResponse) => 
   }
 };
 
+const addEventToDay = async (req: AuthenticatedRequest, res: NextApiResponse) => {
+  try {
+    const { dayName, eventId, startTime, endTime, reminderTime } = req.body;
+    const user = req.user;
+
+    if (!user) {
+      logger.warn("❌ Unauthorized Request, user not found");
+      return res.status(401).json({ message: "Unauthorized Request, user not found" });
+    }
+
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
+      logger.warn("❌ User not found in DB");
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    if (!dayName || typeof dayName !== "string") {
+      return res.status(400).json({ message: "dayName is required." });
+    }
+
+    if (!eventId || typeof eventId !== "string") {
+      return res.status(400).json({ message: "eventId is required." });
+    }
+
+    if (!startTime || typeof startTime !== "string" || !isValidTimeString(startTime)) {
+      return res.status(400).json({ message: "startTime must be in HH:MM format." });
+    }
+
+    if (!endTime || typeof endTime !== "string" || !isValidTimeString(endTime)) {
+      return res.status(400).json({ message: "endTime must be in HH:MM format." });
+    }
+
+    if (!isEndTimeAfterStartTime(startTime, endTime)) {
+      return res.status(400).json({
+        message: `endTime (${endTime}) must be after startTime (${startTime})`,
+      });
+    }
+
+    const normalizedDay = dayName.toUpperCase();
+    const week = await Week.findOne({ owner: currentUser._id });
+
+    if (!week) {
+      logger.warn(`❌ Week not found for user ${user.email}`);
+      return res.status(404).json({ message: "Week not found." });
+    }
+
+    const day = week[normalizedDay];
+    if (!day || !Array.isArray(day.events)) {
+      logger.warn(`❌ Day '${normalizedDay}' not found in week`);
+      return res.status(404).json({ message: `Day '${normalizedDay}' not found in week.` });
+    }
+
+    day.events.push({
+      event: eventId,
+      startTime,
+      endTime,
+      reminderTime: reminderTime ?? null,
+    });
+
+    const updatedWeek = await Week.findByIdAndUpdate(
+      week._id,
+      { [normalizedDay]: day },
+      { new: true, select: "-__v -createdAt -updatedAt" }
+    );
+
+    if (!updatedWeek) {
+      logger.warn(`❌ Failed to update week while adding event to day ${normalizedDay}`);
+      return res.status(500).json({ message: "Failed to update week." });
+    }
+
+    logger.info(`✅ Event added to day ${normalizedDay} successfully for user ${user.email}`);
+    return res.status(200).json({
+      message: `Event added to day ${normalizedDay} successfully`,
+      week: updatedWeek,
+    });
+  } catch (error) {
+    logger.error("Error adding event to day:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+
+const removeEventFromDay = async (req: AuthenticatedRequest, res: NextApiResponse) => {
+  try {
+    const { dayName, eventIndex } = req.query;
+    const user = req.user;
+
+    if (!user) {
+      logger.warn("❌ Unauthorized Request, user not found");
+      return res.status(401).json({ message: "Unauthorized Request, user not found" });
+    }
+
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
+      logger.warn("❌ User not found for delete operation");
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    if (!dayName || typeof dayName !== "string") {
+      logger.warn("❌ dayName is required");
+      return res.status(400).json({ message: "dayName is required." });
+    }
+
+    if (eventIndex === undefined || isNaN(Number(eventIndex))) {
+      logger.warn("❌ eventIndex is required and must be a number");
+      return res.status(400).json({ message: "eventIndex is required and must be a number." });
+    }
+
+    const normalizedDay = dayName.toUpperCase();
+    const week = await Week.findOne({ owner: currentUser._id });
+
+    if (!week) {
+      logger.warn(`❌ Week not found for user ${user.email}`);
+      return res.status(404).json({ message: "Week not found." });
+    }
+
+    const day = week[normalizedDay];
+    if (!day || !Array.isArray(day.events)) {
+      logger.warn(`❌ Day '${normalizedDay}' not found in week`);
+      return res.status(404).json({ message: `Day '${normalizedDay}' not found in week.` });
+    }
+
+    const index = +eventIndex;
+    if (index < 0 || index >= day.events.length) {
+      logger.warn(`❌ Invalid event index ${index} for day '${normalizedDay}'`);
+      return res.status(400).json({ message: "Invalid event index." });
+    }
+
+    day.events.splice(index, 1); // remove the event at index
+
+    const updatedWeek = await Week.findByIdAndUpdate(
+      week._id,
+      { [normalizedDay]: day },
+      { new: true, select: "-__v -createdAt -updatedAt" }
+    );
+
+    if (!updatedWeek) {
+      logger.warn(`❌ Failed to update week while deleting event from day ${normalizedDay}`);
+      return res.status(500).json({ message: "Failed to update week." });
+    }
+
+    logger.info(`✅ Event removed from day ${normalizedDay} successfully for user ${user.email}`);
+    return res.status(200).json({
+      message: `Event removed from day ${normalizedDay} successfully`,
+      week: updatedWeek,
+    });
+
+  } catch (error) {
+    logger.error("Error removing event from day:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+
 const getWeekData = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
-    const { weekId } = req.query;
     const user = req.user;
     if (!user) {
       logger.warn("❌ Unauthorized Request, user not found");
       return res.status(401).json({ message: "Unauthorized Request, user not found" });
     }
-    const currentUser = await User.find({ email: user.email });
-    if (!currentUser || !currentUser.length) {
+
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
       logger.warn("❌ User not found for update operation");
       return res.status(404).json({ message: "User not found." });
     }
 
-    if (!weekId || typeof weekId !== "string") {
-      logger.warn("❌ weekId is required for fetching week data");
-      return res.status(400).json({ message: "weekId is required." });
-    }
-
-    const week = await Week.findById(weekId)
-      .select("metadata days")
-      .populate({
-        path: "days",
-        select: "_id name", // only get ID and name of each day
-      });
+    const week = await Week.findOne({ owner: currentUser._id })
+      .populate([
+        { path: "SUNDAY.events.event", select: "-__v -createdAt -updatedAt" },
+        { path: "MONDAY.events.event", select: "-__v -createdAt -updatedAt" },
+        { path: "TUESDAY.events.event", select: "-__v -createdAt -updatedAt" },
+        { path: "WEDNESDAY.events.event", select: "-__v -createdAt -updatedAt" },
+        { path: "THURSDAY.events.event", select: "-__v -createdAt -updatedAt" },
+        { path: "FRIDAY.events.event", select: "-__v -createdAt -updatedAt" },
+        { path: "SATURDAY.events.event", select: "-__v -createdAt -updatedAt" },
+      ])
+      .select("-__v -createdAt -updatedAt");
 
     if (!week) {
-      logger.warn(`❌ Week with ID ${weekId} not found`);
+      logger.warn(`❌ Week not found`);
       return res.status(404).json({ message: "Week not found." });
     }
-    if (currentUser[0]._id.toString() !== week.owner.toString()) {
-      logger.warn(`❌ Unauthorized access to week with ID ${weekId} by user ${user.email}`);
+
+    if (currentUser._id.toString() !== week.owner.toString()) {
+      logger.warn(`❌ Unauthorized access to week by user ${user.email}`);
       return res.status(403).json({ message: "Unauthorized access to this week." });
     }
 
     return res.status(200).json({
-      metadata: week.metadata,
-      days: week.days,
+      message: "✅ Week data fetched successfully",
+      week,
     });
+
   } catch (error) {
-    console.error("Error getting week data:", error);
+    console.error("❌ Error getting week data:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
 const updateWeekMetadata = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
-    const { weekId } = req.query;
     const { metadata } = req.body;
     const user = req.user;
     if (!user) {
       logger.warn("❌ Unauthorized Request, user not found");
       return res.status(401).json({ message: "Unauthorized Request, user not found" });
     }
-    const currentUser = await User.find({ email: user.email });
-    if (!currentUser || !currentUser.length) {
+    const currentUser = await User.findOne({ email: user.email });
+    if (!currentUser) {
       logger.warn("❌ User not found for update operation");
       return res.status(404).json({ message: "User not found." });
     }
-
-    if (!weekId || typeof weekId !== "string" || typeof metadata !== "string") {
-      logger.warn("❌ weekId and metadata are required for updating metadata");
-      return res.status(400).json({ message: "Invalid input." });
-    }
-
-    const weekExists = await Week.findById(weekId);
+    const weekExists = await Week.findOne({ owner: currentUser._id });
     if (!weekExists) {
-      logger.warn(`❌ Week with ID ${weekId} not found for metadata update`);
+      logger.warn(`❌ Week not found for user ${user.email}`);  
       return res.status(404).json({ message: "Week not found." });
-    }
-    if (currentUser[0]._id.toString() !== weekExists.owner.toString()) {
-      logger.warn(`❌ Unauthorized access to week with ID ${weekId} by user ${user.email}`);
-      return res.status(403).json({ message: "Unauthorized access to this week." });
-    }
+    };
 
     const week = await Week.findByIdAndUpdate(
       weekExists._id,
@@ -217,10 +315,9 @@ const updateWeekMetadata = async (req: AuthenticatedRequest, res: NextApiRespons
     );
 
     if (!week) {
-      logger.warn(`❌ Week with ID ${weekId} not found for metadata update`);
+      logger.warn(`❌ Week not found for metadata update`);
       return res.status(404).json({ message: "Week not found." });
     }
-
 
     return res.status(200).json({ message: "Metadata updated", week });
   } catch (error) {
@@ -231,105 +328,6 @@ const updateWeekMetadata = async (req: AuthenticatedRequest, res: NextApiRespons
 
 const deleteWeek = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
-    const { weekId } = req.query;
-    const user = req.user;
-    if (!user) {
-      logger.warn("❌ Unauthorized Request, user not found");
-      return res.status(401).json({ message: "Unauthorized Request, user not found" });
-    }
-    const currentUser = await User.find({ email: user.email });
-    if (!currentUser || !currentUser.length) {
-      logger.warn("❌ User not found for delete operation");
-      return res.status(404).json({ message: "User not found." });
-    }
-
-    if (!weekId || typeof weekId !== "string") {
-      logger.warn("❌ weekId is required for deleting week");
-      return res.status(400).json({ message: "weekId is required." });
-    }
-
-    const week = await Week.findById(weekId);
-    if (!week) {
-      logger.warn(`❌ Week with ID ${weekId} not found for deletion`);
-      return res.status(404).json({ message: "Week not found." });
-    }
-    if (currentUser[0]._id.toString() !== week.owner.toString()) {
-      logger.warn(`❌ Unauthorized access to week with ID ${weekId} by user ${user.email}`);
-      return res.status(403).json({ message: "Unauthorized access to this week." });
-    }
-
-    await Day.deleteMany({ _id: { $in: week.days } });
-    await week.deleteOne();
-
-    return res.status(200).json({ message: "Week and associated days deleted." });
-  } catch (error) {
-    console.error("Error deleting week:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
-const copyWeek = async (req: AuthenticatedRequest, res: NextApiResponse) => {
-  try {
-    const { weekId } = req.query;
-    const user = req.user;
-    if (!user) {
-      logger.warn("❌ Unauthorized Request, user not found");
-      return res.status(401).json({ message: "Unauthorized Request, user not found" });
-    }
-    const currentUser = await User.find({ email: user.email });
-    if (!currentUser || !currentUser.length) {
-      logger.warn("❌ User not found for copy operation");
-      return res.status(404).json({ message: "User not found." });
-    }
-
-    if (!weekId || typeof weekId !== "string") {
-      logger.warn("❌ weekId is required for copying week");
-      return res.status(400).json({ message: "weekId is required." });
-    }
-
-    const week = await Week.findById(weekId).populate("days");
-    if (!week) {
-      logger.warn(`❌ Week with ID ${weekId} not found for copying`);
-      return res.status(404).json({ message: "Original week not found." });
-    }
-    if (currentUser[0]._id.toString() !== week.owner.toString()) {
-      logger.warn(`❌ Unauthorized access to week with ID ${weekId} by user ${user.email}`);
-      return res.status(403).json({ message: "Unauthorized access to this week." });
-    }
-
-    const copiedDays = await Promise.all(
-      (week.days as IDay[]).map((day) =>
-        Day.create({
-          name: day.name,
-          date: new Date(day.date.getTime()), // new Date instance
-          events: [...day.events],
-          owner: currentUser[0]._id,
-        })
-      )
-    );
-
-    const newWeek = await Week.create({
-      metadata: `${week.metadata || "Copied Week"} - Copy`,
-      days: copiedDays.map(d => d._id),
-      owner: currentUser[0]._id,
-    });
-
-    return res.status(201).json({
-      message: "Week copied successfully",
-      week: {
-        _id: newWeek._id,
-        metadata: newWeek.metadata,
-      },
-    });
-  } catch (error) {
-    logger.error("Error copying week:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
-const getACompleteWeekData = async (req: AuthenticatedRequest, res: NextApiResponse) => {
-  try {
-    const { weekId } = req.query;
     const user = req.user;
     if (!user) {
       logger.warn("❌ Unauthorized Request, user not found");
@@ -337,77 +335,33 @@ const getACompleteWeekData = async (req: AuthenticatedRequest, res: NextApiRespo
     }
     const currentUser = await User.findOne({ email: user.email });
     if (!currentUser) {
-      logger.warn("❌ User not found for fetching complete week data");
+      logger.warn("❌ User not found for delete operation");
       return res.status(404).json({ message: "User not found." });
     }
-    if (!weekId || typeof weekId !== "string") {
-      logger.warn("❌ weekId is required for fetching complete week data");
-      return res.status(400).json({ message: "weekId is required." });
-    }
-    const week = await Week.findById(weekId)
-      .populate({
-        path: 'days',
-        select: 'name date owner events',
-        populate: {
-          path: 'events.event',
-          model: 'Event',
-          select: 'title tag message startTime endTime',
-        },
-      })
-      .select('-__v')
-      .lean();
-    if (!week) {
-      logger.warn(`❌ Week with ID ${weekId} not found for fetching complete data`);
+    const weekExists = await Week.findOne({ owner: currentUser._id });
+    if (!weekExists) {
+      logger.warn(`❌ Week not found for user ${user.email}`);
       return res.status(404).json({ message: "Week not found." });
     }
-    if (Array.isArray(week) || !week.owner || currentUser._id.toString() !== week.owner.toString()) {
-      logger.warn(`❌ Unauthorized access to week with ID ${weekId} by user ${user.email}`);
-      return res.status(403).json({ message: "Unauthorized access to this week." });
+    const week = await Week.findByIdAndDelete(weekExists._id);
+    if (!week) {
+      logger.warn(`❌ Week not found for deletion`);
+      return res.status(404).json({ message: "Week not found." });
     }
-    const cleanDays = (week.days as any[]).map((day) => ({
-      _id: day._id,
-      name: day.name,
-      date: day.date,
-      events: (day.events || []).map((entry: any) => {
-        const event = entry.event;
-        return event && typeof event === 'object'
-          ? {
-              _id: event._id,
-              title: event.title,
-              tag: event.tag,
-              message: event.message,
-              startTime: entry.startTime, // from Day.events
-              endTime: entry.endTime,
-            }
-          : null;
-      }).filter(Boolean), // remove nulls
-    }));
-
-    const cleanWeek = {
-      _id: week._id,
-      metadata: week.metadata,
-      createdAt: week.createdAt,
-      updatedAt: week.updatedAt,
-      days: cleanDays,
-    };
-
-    return res.status(200).json({
-      week: cleanWeek,
-      message: 'Week data fetched successfully',
-    });
+    return res.status(200).json({ message: "Week and associated days deleted." });
   } catch (error) {
-    logger.error("Error fetching complete week data:", error);
+    console.error("Error deleting week:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
+
 export {
-  createWeek,
-  getDayByName,
-  getWeekData,
-  updateWeekMetadata,
-  deleteWeek,
-  copyWeek,
-  createWeekWithDays,
-  getACompleteWeekData
+  createWeek, //
+  getDayByName, //
+  getWeekData, //
+  updateWeekMetadata, //
+  deleteWeek, //
+  addEventToDay, //
+  removeEventFromDay
 };

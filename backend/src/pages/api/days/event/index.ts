@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { addEventToDay, getEventsOfDay, updateEventInDay, deleteEventFromDay } from "@/lib/controllers/day.controller";
+import { addEventToDay, getEventsOfDay, deleteEventFromDay } from "@/lib/controllers/day.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
 import { AuthenticatedRequest } from "@/lib/models/user.model";
 
@@ -13,12 +13,10 @@ export default withAuth(async function handler(
                 return await addEventToDay(req, res);
             case "GET":
                 return await getEventsOfDay(req, res);
-            case "PUT":
-                return await updateEventInDay(req, res);
             case "DELETE":
                 return await deleteEventFromDay(req, res);
             default:
-                res.setHeader("Allow", ["POST", "GET"]);
+                res.setHeader("Allow", ["POST", "GET", "DELETE"]);
                 return res.status(405).end(`Method ${req.method} Not Allowed`);
         }
     } catch (error) {
