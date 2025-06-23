@@ -4,6 +4,7 @@ import { withDashboardLayout } from '@/components/withDashboardLayout';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Loading from '@/components/tools/loading';
+import { useRouter } from 'next/router';
 
 interface Event {
   _id: string;
@@ -50,6 +51,7 @@ const WeekCalendar: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [weekData, setWeekData] = useState<WeekData | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchWeekData = async () => {
@@ -88,8 +90,7 @@ const WeekCalendar: React.FC = () => {
   const hours = Array.from({ length: 24 }, (_, i) => i); // 0-23 hours (24 hour format)
 
   const handleDayEdit = (day: string) => {
-    setSelectedDay(day);
-    console.log(`Edit ${day}`);
+    router.push(`/dashboard/timetable/edit-standard-day?day=${day}`);
   };
 
   // Show loading state
@@ -132,7 +133,7 @@ const WeekCalendar: React.FC = () => {
     const startHour = startMinutes / 60;
     
     return {
-      top: `${startHour * 2.5}rem`, // 2.5rem per hour to fit 24 hours
+      top: `${startHour * 2.5}rem`,
       height: `${(duration / 60) * 2.5}rem`
     };
   };
@@ -155,10 +156,6 @@ const WeekCalendar: React.FC = () => {
               <Calendar className="w-6 h-6 text-neutral-300" />
               <h1 className="text-2xl font-bold text-white">Week Calendar</h1>
             </div>
-            <button className="px-5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium rounded-lg transition-all flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Add Event
-            </button>
           </div>
           
           {/* Day Navigation */}
