@@ -54,7 +54,7 @@ const WeekCalendar: React.FC = () => {
   useEffect(() => {
     const fetchWeekData = async () => {
       try {
-        const response = await axios.get('/api/timetable/weeks');
+        const response = await axios.get('/api/weeks');
         const { message, week } = response.data || {};
         
         // Show success message if available
