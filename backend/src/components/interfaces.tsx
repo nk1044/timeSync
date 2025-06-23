@@ -34,6 +34,65 @@ export interface AvailableEvent {
     updatedAt: string;
 }
 
+
+export interface WeekEvent {
+  event: Event;
+  startTime: string;
+  endTime: string;
+  reminderTime?: number;
+}
+
+export interface EventItemProps {
+  event: {
+    title: string;
+    message: string;
+    startTime: string;
+    endTime: string;
+  };
+  onClick: () => void;
+}
+
+
+export type DayKey = 'SUNDAY' | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY';
+
+type WeekDays = {
+  [key in DayKey]: DayData;
+};
+
+export interface WeekData extends WeekDays {
+  _id: string;
+  metadata: string;
+  owner: string;
+}
+
+export const days: DayKey[] = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+export const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const hours = Array.from({ length: 24 }, (_, i) => i);
+
+export const timeToMinutes = (time: string): number => {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+export const getEventPosition = (startTime: string, endTime: string) => {
+  const startMinutes = timeToMinutes(startTime);
+  const duration = timeToMinutes(endTime) - startMinutes;
+  return {
+    top: `${(startMinutes / 60) * 2.5}rem`,
+    height: `${(duration / 60) * 2.5}rem`,
+  };
+};
+
+
+export const formatTime = (time: string): string => {
+  const [hours, minutes] = time.split(':');
+  const hour = parseInt(hours);
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minutes} ${period}`;
+};
+
+
 export interface AllEventsResponse {
     message: string;
     events: AvailableEvent[];
