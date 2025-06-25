@@ -124,11 +124,11 @@ class FCMTokenService {
   }
 
   // Method to check if user is authenticated before sending token
-  static bool _isUserAuthenticated(Dio dio) {
-    // Check if dio has authorization header or token
-    final headers = dio.options.headers;
-    return headers.containsKey('Authorization') || headers.containsKey('authorization');
-  }
+  // static bool _isUserAuthenticated(Dio dio) {
+  //   // Check if dio has authorization header or token
+  //   final headers = dio.options.headers;
+  //   return headers.containsKey('Authorization') || headers.containsKey('authorization');
+  // }
 }
 
 // Updated login service - removed FCM initialization from here
@@ -139,7 +139,7 @@ Future<void> loginService(BuildContext context, WidgetRef ref) async {
     _logger.i('✅ Dio instance created');
 
     final googleSignIn = GoogleSignIn(
-      clientId: dotenv.env['GOOGLE_WEB_CLIENT_ID'],
+      clientId: Platform.isIOS ? dotenv.env['GOOGLE_WEB_CLIENT_ID'] : null,
     );
 
     final googleUser = await googleSignIn.signIn();

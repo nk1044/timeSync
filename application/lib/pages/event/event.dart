@@ -35,7 +35,7 @@ class MyEvents extends ConsumerWidget {
             Expanded(
               child: Center(
                 child: Text(
-                  'All Todos',
+                  'All Events',
                   style: Theme.of(context).appBarTheme.titleTextStyle,
                 ),
               ),

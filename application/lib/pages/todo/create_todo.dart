@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:application/pages/todo/todo_model.dart';
 import 'package:application/pages/todo/todo_provider.dart';
 
@@ -63,30 +64,52 @@ class _CreateTodoState extends ConsumerState<CreateTodo> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Todo')),
+      appBar: AppBar(
+        title: const Text('Create Todo'),
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              /// Title
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
+                decoration: const InputDecoration(
+                  hintText: 'Enter title...',
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+                ),
+                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                 validator: (v) => v == null || v.isEmpty ? 'Enter a title' : null,
               ),
-              const SizedBox(height: 16),
+              const Divider(height: 32),
+
+              /// Description
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: const InputDecoration(
+                  hintText: 'Add more details...',
+                  border: InputBorder.none,
+                ),
                 keyboardType: TextInputType.multiline,
                 maxLines: null,
+                minLines: 5,
+                style: theme.textTheme.bodyLarge,
               ),
-              const SizedBox(height: 16),
+              const Divider(height: 40),
+
+              /// Status Dropdown
               DropdownButtonFormField<TodoStatus>(
                 value: _status,
-                onChanged: (value) => setState(() => _status = value),
+                onChanged: (val) => setState(() => _status = val),
                 decoration: const InputDecoration(labelText: 'Status'),
                 items: TodoStatus.values.map((status) {
                   return DropdownMenuItem(
@@ -96,9 +119,11 @@ class _CreateTodoState extends ConsumerState<CreateTodo> {
                 }).toList(),
               ),
               const SizedBox(height: 16),
+
+              /// Tag Dropdown
               DropdownButtonFormField<TodoTag>(
                 value: _tag,
-                onChanged: (value) => setState(() => _tag = value),
+                onChanged: (val) => setState(() => _tag = val),
                 decoration: const InputDecoration(labelText: 'Tag'),
                 items: TodoTag.values.map((tag) {
                   return DropdownMenuItem(
@@ -107,37 +132,33 @@ class _CreateTodoState extends ConsumerState<CreateTodo> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.calendar_today),
-                label: Text(_reminder != null
-                    ? 'Reminder: ${_reminder!.toLocal()}'.split('.')[0]
-                    : 'Pick Reminder'),
-                onPressed: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                    lastDate: DateTime(2100),
-                  );
-                  if (date != null) {
-                    final time = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay.now(),
-                    );
-                    if (time != null) {
-                      setState(() {
-                        _reminder = DateTime(
-                          date.year, date.month, date.day, time.hour, time.minute,
-                        );
-                      });
-                    }
-                  }
-                },
-              ),
               const SizedBox(height: 24),
+
+              /// Reminder
+              Row(
+                children: [
+                  const Icon(Icons.alarm),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _reminder != null
+                          ? "Reminder: ${DateFormat('MMM d, h:mm a').format(_reminder!)}"
+                          : "No reminder set",
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _pickReminder,
+                    child: const Text("Pick"),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+
+              /// Submit Button
               SizedBox(
                 width: double.infinity,
+                height: 48,
                 child: ElevatedButton.icon(
                   icon: _isLoading
                       ? const SizedBox(
@@ -148,9 +169,14 @@ class _CreateTodoState extends ConsumerState<CreateTodo> {
                             strokeWidth: 2,
                           ),
                         )
-                      : const Icon(Icons.save),
+                      : const Icon(Icons.check),
                   label: Text(_isLoading ? 'Creating...' : 'Create Todo'),
                   onPressed: _isLoading ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -158,5 +184,25 @@ class _CreateTodoState extends ConsumerState<CreateTodo> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickReminder() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime(2100),
+    );
+    if (date != null) {
+      final time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+      );
+      if (time != null) {
+        setState(() {
+          _reminder = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+        });
+      }
+    }
   }
 }
