@@ -25,7 +25,7 @@ const NotificationSchema = new Schema({
     dayId:{
         type: Schema.Types.ObjectId,
         ref: "Day",
-        required: true
+        required: false
     },
     eventId:{
         type: Schema.Types.ObjectId,

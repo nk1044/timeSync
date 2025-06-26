@@ -38,8 +38,8 @@ const createTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
             logger.warn("❌ Failed to create todo");
             return res.status(500).json({ message: "Failed to create todo." });
         }
-        createNotification({
-            title: `TODO Reminder`,
+        const notification = await createNotification({
+            title: 'TODO Reminder',
             message: `Reminder for your todo: ${newTodo.title}`,
             type: "TODO",
             dayId: "",
@@ -50,6 +50,11 @@ const createTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
             repeatDay: 0,
             status: "pending",
         });
+        if (!notification) {
+            logger.warn("❌ Failed to create notification for todo");
+            return res.status(500).json({ message: "Failed to create notification for todo." });
+        }
+        logger.info(`✅ Notification created for todo: ${newTodo.title}`);
         logger.info("✅ Todo created successfully");
         return res.status(201).json({ message: "Todo created successfully", todo: newTodo });
     } catch (error) {
