@@ -41,3 +41,8 @@
 # typescript
 *.tsbuildinfo
 */next-env.d.ts
+
+
+# Firebase service account
+service-account.json
+*.secret.json

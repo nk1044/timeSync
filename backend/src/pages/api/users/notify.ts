@@ -1,21 +1,23 @@
 import { connectDB } from "@/lib/config/db";
-import {sendNotification} from "@/lib/notification/service";
-import type { NextApiRequest, NextApiResponse } from "next";
+import {sendNotificationToUser} from "@/lib/notification/service";
+import type {NextApiResponse } from "next";
 import { AuthenticatedRequest } from "@/lib/models/user.model";
+import { withAuth } from "@/lib/middleware/authMiddleware";
 
-export default async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
-    if (req.method !== "POST") return res.status(405).json({ message: "Method Not Allowed" });
+export default withAuth(
+    async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     await connectDB();
-    const { token, title, body } = req.body;
-    if (!token || !title || !body) {
-        return res.status(400).json({ message: "Missing token, title or body" });
-    }
-
     try {
-        await sendNotification(token, { title, body });
-        return res.status(200).json({ message: "✅ Notification sent" });
+        await connectDB();
+        switch (req.method) {
+            case "POST":
+                return await sendNotificationToUser(req, res);
+            default:
+                res.setHeader("Allow", ["POST"]);
+                return res.status(405).end(`Method ${req.method} Not Allowed`);
+        }
     } catch (error) {
         console.error("❌ Notification error:", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
-}
+})

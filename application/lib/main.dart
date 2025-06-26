@@ -3,6 +3,7 @@ import 'package:application/auth/login.dart';
 import 'package:application/home/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -16,6 +17,34 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   _logger.i('🔔 Background message: ${message.messageId}');
 }
 
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+Future<void> setupFlutterNotifications() async {
+  const androidSettings = AndroidInitializationSettings('ic_notification');
+  const initSettings = InitializationSettings(android: androidSettings);
+  await flutterLocalNotificationsPlugin.initialize(initSettings);
+}
+
+Future<void> showFlutterNotification(RemoteMessage message) async {
+  const androidDetails = AndroidNotificationDetails(
+    'default_channel',
+    'Default',
+    channelDescription: 'Default notification channel',
+    importance: Importance.max,
+    priority: Priority.high,
+    showWhen: true,
+  );
+
+  const notificationDetails = NotificationDetails(android: androidDetails);
+
+  await flutterLocalNotificationsPlugin.show(
+    message.hashCode,
+    message.notification?.title,
+    message.notification?.body,
+    notificationDetails,
+  );
+}
+
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
@@ -23,11 +52,14 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    await setupFlutterNotifications();
     
     // Set up Firebase Messaging
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     FirebaseMessaging.onMessage.listen((message) {
       _logger.i('📥 Foreground message: ${message.notification?.title}');
+      showFlutterNotification(message);
     });
     
     // Request permissions only
