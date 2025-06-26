@@ -53,5 +53,6 @@ const sendNotificationToUser = async (req: AuthenticatedRequest, res: NextApiRes
 
 
 export {
+  sendNotification,
   sendNotificationToUser
 }
