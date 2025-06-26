@@ -1,5 +1,3 @@
-// notification_worker.ts
-
 import { logger } from "../config/logger";
 import { Notification } from "../models/notification.model";
 import { User } from "../models/user.model";
@@ -23,12 +21,18 @@ const sendNotificationToUser = async (notificationDoc: any) => {
       return;
     }
 
-    // Delay if scheduledAt is in the future
+    // Delay until scheduledAt
     const now = Date.now();
     const waitTime = new Date(scheduledAt).getTime() - now;
     if (waitTime > 0) {
       logger.info(`⏳ Waiting ${waitTime}ms to send notification ${_id}`);
       await delay(waitTime);
+    }
+
+    // Double check the time has come
+    if (new Date() < new Date(scheduledAt)) {
+      logger.warn(`⚠️ Skipping notification ${_id} - scheduledAt still in the future`);
+      return;
     }
 
     // Send FCM notification
@@ -37,7 +41,6 @@ const sendNotificationToUser = async (notificationDoc: any) => {
       body: message,
     });
 
-    // Mark current notification as sent
     notificationDoc.status = 'sent';
     await notificationDoc.save();
 
@@ -51,9 +54,10 @@ const sendNotificationToUser = async (notificationDoc: any) => {
         userId,
         title,
         message,
-        type: notificationDoc.type ?? '', // Provide a default or copy from original
-        eventId: notificationDoc.eventId ?? '', // Provide a default or copy from original
-        todoId: notificationDoc.todoId ?? '', // Provide a default or copy from original
+        type: notificationDoc.type ?? '',
+        dayId: notificationDoc.dayId ?? '',
+        eventId: notificationDoc.eventId ?? '',
+        todoId: notificationDoc.todoId ?? '',
         scheduledAt: nextScheduledAt,
         repeatDay,
         priority: notificationDoc.priority ?? 1,
@@ -66,7 +70,6 @@ const sendNotificationToUser = async (notificationDoc: any) => {
   } catch (error) {
     logger.error(`❌ Failed to send notification ${notificationDoc?._id}:`, error);
 
-    // Mark as failed
     if (notificationDoc) {
       notificationDoc.status = 'failed';
       await notificationDoc.save();
@@ -74,32 +77,36 @@ const sendNotificationToUser = async (notificationDoc: any) => {
   }
 };
 
-
 const processNotifications = async () => {
   while (true) {
     try {
       const now = new Date();
 
-      const notifications = await Notification.find({
+      const nextNotification = await Notification.findOne({
         status: 'pending',
-        scheduledAt: { $lte: new Date(Date.now() + 5 * 60 * 1000) }, // fetch 5 mins ahead
-      }).sort({ priority: -1, scheduledAt: 1 });
+        scheduledAt: { $gte: now }, // upcoming only
+      })
+        .sort({ scheduledAt: 1, priority: -1 }); // strict time first, then priority
 
-      if (notifications.length === 0) {
-        logger.info('🔕 No pending notifications to process. Waiting...');
-      } else {
-        logger.info(`📦 Found ${notifications.length} notifications. Starting parallel dispatch...`);
-
-        await Promise.all(
-          notifications.map((notification) => sendNotificationToUser(notification))
-        );
+      if (!nextNotification) {
+        logger.info('🔕 No upcoming notifications found. Rechecking in 30s...');
+        await delay(30 * 1000);
+        continue;
       }
-    } catch (error) {
-      logger.error('❌ Error in processNotifications loop:', error);
-    }
 
-    // Wait 5 minutes before next cycle
-    await delay(5 * 60 * 1000);
+      const waitTime = new Date(nextNotification.scheduledAt).getTime() - Date.now();
+
+      if (waitTime > 0) {
+        logger.info(`⏳ Next notification (${nextNotification._id}) scheduled in ${waitTime}ms`);
+        await delay(waitTime);
+      }
+
+      // Send only one at a time
+      await sendNotificationToUser(nextNotification);
+    } catch (error) {
+      logger.error('❌ Error in notification loop:', error);
+      await delay(10 * 1000); // retry sooner if error
+    }
   }
 };
 

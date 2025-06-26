@@ -1,5 +1,7 @@
 import { Todo } from "../models/todo.model";
-import type { NextApiRequest, NextApiResponse } from "next";
+import { Notification } from "../models/notification.model";
+import {createNotification} from "./notification.controller";
+import type {NextApiResponse } from "next";
 import { User, AuthenticatedRequest } from "../models/user.model";
 import { logger } from "../config/logger";
 
@@ -36,6 +38,18 @@ const createTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
             logger.warn("❌ Failed to create todo");
             return res.status(500).json({ message: "Failed to create todo." });
         }
+        createNotification({
+            title: `TODO Reminder`,
+            message: `Reminder for your todo: ${newTodo.title}`,
+            type: "TODO",
+            dayId: "",
+            todoId: newTodo._id.toString(),
+            eventId: "",
+            userId: currentUser._id.toString(),
+            scheduledAt: reminder ? new Date(reminder) : new Date(),
+            repeatDay: 0,
+            status: "pending",
+        });
         logger.info("✅ Todo created successfully");
         return res.status(201).json({ message: "Todo created successfully", todo: newTodo });
     } catch (error) {
@@ -133,6 +147,7 @@ const updateTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
             logger.warn("❌ Forbidden: You do not have access to this todo.");
             return res.status(403).json({ message: "Forbidden: You do not have access to this todo." });
         }
+        const previourReminder = todo.reminder ? todo.reminder.toISOString() : null;
         const updatedTodo = await Todo.findByIdAndUpdate(
             todo._id,
             {
@@ -147,6 +162,32 @@ const updateTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
         if (!updatedTodo) {
             logger.warn("❌ Todo not found for update.");
             return res.status(404).json({ message: "Todo not found." });
+        }
+        if( previourReminder !== updatedTodo.reminder?.toISOString()) {
+            const notification = await Notification.findOne({
+                todoId: updatedTodo._id,
+                userId: currentUser._id.toString(),
+            });
+            if (notification) {
+                logger.info(`✅ Updating notification for todo: ${updatedTodo.title}`);
+                notification.scheduledAt = updatedTodo.reminder ? new Date(updatedTodo.reminder) : new Date();
+                await notification.save();
+            }
+            else {
+                logger.info(`✅ Creating notification for todo: ${updatedTodo.title}`);
+                createNotification({
+                    title: `TODO Reminder`,
+                    message: `Reminder for your todo: ${updatedTodo.title}`,
+                    type: "TODO",
+                    dayId: "",
+                    todoId: updatedTodo._id.toString(),
+                    eventId: "",
+                    userId: currentUser._id.toString(),
+                    scheduledAt: updatedTodo.reminder ? new Date(updatedTodo.reminder) : new Date(),
+                    repeatDay: 0,
+                    status: "pending",
+                });
+            }
         }
         return res.status(200).json({ message: "Todo updated successfully", todo: updatedTodo });
     } catch (error) {
@@ -181,6 +222,14 @@ const deleteTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
         if (todo.owner.toString() !== currentUser._id.toString()) {
             logger.warn("❌ Forbidden: You do not have access to this todo.");
             return res.status(403).json({ message: "Forbidden: You do not have access to this todo." });
+        }
+        const notification = await Notification.findOne({
+            todoId: todo._id,
+            userId: currentUser._id.toString(),
+        });
+        if (notification) {
+            logger.info(`✅ Deleting notification for todo: ${todo.title}`);
+            await notification.deleteOne();
         }
         const deletedTodo = await Todo.findByIdAndDelete(todo._id);
         if (!deletedTodo) {

@@ -13,7 +13,7 @@ const NotificationSchema = new Schema({
     type: {
         type: String,
         required: true,
-        enum: ['EVENT', 'PERSONAL', 'TASK'],
+        enum: ['EVENT', 'PERSONAL', 'TODO'],
         default: 'EVENT'
     },
     priority:{
@@ -22,13 +22,20 @@ const NotificationSchema = new Schema({
         min: 1, // Minimum priority value
         max: 5 // Maximum priority value
     },
-    eventId: {
+    dayId:{
+        type: Schema.Types.ObjectId,
+        ref: "Day",
+        required: true
+    },
+    eventId:{
         type: Schema.Types.ObjectId,
         ref: "Event",
+        required: false
     },
-    todoId: {
+    todoId:{
         type: Schema.Types.ObjectId,
         ref: "Todo",
+        required: false
     },
     scheduledAt: {
         type: Date,
