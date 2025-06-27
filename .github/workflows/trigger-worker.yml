@@ -1,0 +1,17 @@
+name: Trigger Notification Worker
+
+on:
+  schedule:
+    - cron: '*/8 * * * *'
+
+jobs:
+  call-worker-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Make GET request to worker API
+        run: |
+          curl "${WORKER_URL}?token=${CRON_SECRET}"
+        env:
+          WORKER_URL: ${{ secrets.WORKER_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
