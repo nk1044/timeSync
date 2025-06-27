@@ -17,7 +17,7 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         
       - name: Make GET request to worker API
-        run: curl -v "${secrets.WORKER_URL}?token=${secrets.CRON_SECRET}"
+        run: curl -v "${WORKER_URL}?token=${CRON_SECRET}"
         env:
           WORKER_URL: ${{ secrets.WORKER_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
