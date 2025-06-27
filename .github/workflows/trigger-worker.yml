@@ -10,8 +10,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Make GET request to worker API
-        run: echo "Calling to ${secrets.WORKER_URL}?token=${secrets.CRON_SECRET}"
-        
       - name: Debug Print request URL
+        run: echo "Calling to api"
+        env:
+          WORKER_URL: ${{ secrets.WORKER_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        
+      - name: Make GET request to worker API
         run: curl -v "${secrets.WORKER_URL}?token=${secrets.CRON_SECRET}"
+        env:
+          WORKER_URL: ${{ secrets.WORKER_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
