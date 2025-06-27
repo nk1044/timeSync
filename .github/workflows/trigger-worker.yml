@@ -10,8 +10,7 @@ jobs:
 
     steps:
       - name: Make GET request to worker API
-        run: |
-          curl "${WORKER_URL}?token=${CRON_SECRET}"
-        env:
-          WORKER_URL: ${{ secrets.WORKER_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: echo "Calling to ${secrets.WORKER_URL}?token=${secrets.CRON_SECRET}"
+        
+      - name: Debug Print request URL
+        run: curl -v "${secrets.WORKER_URL}?token=${secrets.CRON_SECRET}"
