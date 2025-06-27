@@ -3,6 +3,7 @@ name: Trigger Notification Worker
 on:
   schedule:
     - cron: '*/8 * * * *'
+  workflow_dispatch:
 
 jobs:
   call-worker-api:
