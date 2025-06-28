@@ -1,12 +1,13 @@
 import 'package:application/auth/token_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 final dioProvider = Provider<Dio>((ref) {
+  final baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.11:3000/api';
   final dio = Dio(
     BaseOptions(
-      // baseUrl: 'http://localhost:3000/api',
-      baseUrl: 'http://192.168.1.11:3000/api',
+      baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
     ),
