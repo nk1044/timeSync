@@ -77,7 +77,7 @@ const getAllTodo = async (req: AuthenticatedRequest, res: NextApiResponse) => {
             return res.status(404).json({ message: "User not found in DB" });
         }
         const allTodos = await Todo.find({owner: currentUser}).select('-__v -owner');
-        if (!allTodos || allTodos.length === 0) {
+        if (!allTodos) {
             logger.warn("❌ No todos found for this user");
             return res.status(404).json({ message: "No todos found for this user." });
         }
