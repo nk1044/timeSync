@@ -7,43 +7,53 @@ const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 const processNextNotification = async () => {
   try {
-    const nowUTC = new Date();
-    const tenMinutesFromNow = new Date(nowUTC.getTime() + (10 * 60 * 1000));
-
-    // Find pending notifications that are either:
-    // 1. Overdue (scheduledAt <= now)
-    // 2. Due within the next 10 minutes (scheduledAt <= tenMinutesFromNow)
     const nextNotification = await Notification
-      .findOne({ 
-        status: 'pending', 
-        scheduledAt: { $lte: tenMinutesFromNow } 
-      })
+      .findOne({ status: 'pending' })
       .sort({ scheduledAt: 1, priority: -1 });
 
     if (!nextNotification) {
-      console.log('ℹ️ No pending notifications found within the next 10 minutes.');
+      console.log('ℹ️ No pending notifications found.');
       return;
     }
-    
-    console.log(`Found notification: ${nextNotification._id} scheduled for ${nextNotification.scheduledAt.toISOString()}`);
-    
-    const waitTime = new Date(nextNotification.scheduledAt).getTime() - nowUTC.getTime();
 
-    // If the notification is overdue or due now, process immediately
+    // Get current time in IST (UTC + 5:30)
+    const nowUTC = new Date();
+    const nowIST = new Date(nowUTC.getTime() + (5.5 * 60 * 60 * 1000)); // Add 5:30 hours
+    
+    // The scheduledAt is stored in IST, so treat it as local IST time
+    const scheduledTimeIST = new Date(nextNotification.scheduledAt);
+    
+    console.log(`📦 Raw scheduledAt:    ${nextNotification.scheduledAt}`);
+    console.log(`🕒 Now IST:           ${nowIST.toISOString().replace('T', ' ').slice(0, 19)} IST`);
+    console.log(`📅 Scheduled IST:     ${scheduledTimeIST.toISOString().replace('T', ' ').slice(0, 19)} IST`);
+    
+    const waitTime = scheduledTimeIST.getTime() - nowIST.getTime();
+    console.log(`⏳ Calculated wait time: ${waitTime}ms`);
+    
+    // Better time display
+    const hours = Math.floor(waitTime / (60_000 * 60));
+    const minutes = Math.floor((waitTime % (60_000 * 60)) / 60_000);
+    const seconds = Math.floor((waitTime % 60_000) / 1000);
+    console.log(`⏳ Time breakdown: ${hours}h ${minutes}m ${seconds}s`);
+
     if (waitTime <= 0) {
-      console.log(`⚡ Processing overdue notification immediately`);
+      console.log(`⚡ Processing overdue or immediate notification`);
     } else {
-      // Wait for the remaining time
-      const minutes = Math.floor(waitTime / 60_000);
-      const seconds = Math.floor((waitTime % 60_000) / 1000);
-      console.log(`⏳ Waiting ${minutes}m ${seconds}s...`);
+      // Add a safety check for unreasonably long wait times
+      const maxWaitTime = 24 * 60 * 60 * 1000; // 24 hours
+      if (waitTime > maxWaitTime) {
+        console.log(`⚠️ Wait time too long (${Math.floor(waitTime / 60000)}m). Skipping.`);
+        return;
+      }
+      
+      console.log(`⏳ Waiting ${Math.floor(waitTime / 60000)}m ${Math.floor((waitTime % 60000) / 1000)}s...`);
       await delay(waitTime);
     }
 
-    // Double-check the notification hasn't been processed by another worker
+    // Confirm it's still pending
     const confirmedNotification = await Notification.findById(nextNotification._id);
     if (!confirmedNotification || confirmedNotification.status !== 'pending') {
-      console.log('ℹ️ Notification was updated or processed by another worker.');
+      console.log('ℹ️ Notification was already processed.');
       return;
     }
 
@@ -65,7 +75,6 @@ const processNextNotification = async () => {
     console.error('❌ Error in background worker:', err);
   }
 };
-
 
 
 const startNotificationWorker = async (req: Request, res: Response) => {
