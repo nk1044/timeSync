@@ -16,8 +16,6 @@ class _CreateTodoState extends ConsumerState<CreateTodo> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
 
-  TodoStatus? _status = TodoStatus.PERSONAL;
-  TodoTag? _tag = TodoTag.NOT_IMPORTANT;
   DateTime? _reminder;
   bool _isLoading = false;
 
@@ -28,7 +26,7 @@ class _CreateTodoState extends ConsumerState<CreateTodo> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  Future<void> _saveTodo() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -37,8 +35,6 @@ class _CreateTodoState extends ConsumerState<CreateTodo> {
     final request = TodoCreateRequest(
       title: _titleController.text,
       description: _descriptionController.text,
-      status: statusToString(_status!),
-      tag: tagToString(_tag!),
       reminder: _reminder,
     );
 
@@ -47,139 +43,252 @@ class _CreateTodoState extends ConsumerState<CreateTodo> {
       if (mounted) {
         ref.invalidate(todosProvider);
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Todo created')),
-        );
+        _showSuccessMessage();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Failed to create todo: $e')),
-        );
-      }
+      if (mounted) _showErrorMessage(e.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  void _showSuccessMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 12),
+            Text('Todo created successfully'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  void _showErrorMessage(String error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text('Failed to create todo: $error')),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? Colors.grey[900] : Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Create Todo'),
-        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none, size: 20),
+            onPressed: _pickReminder, // ✅ Fixed
+            tooltip: 'Add reminder',
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              /// Title
-              TextFormField(
+      body: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            // Title
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(
-                  hintText: 'Enter title...',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-                ),
-                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                validator: (v) => v == null || v.isEmpty ? 'Enter a title' : null,
-              ),
-              const Divider(height: 32),
-
-              /// Description
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  hintText: 'Add more details...',
-                  border: InputBorder.none,
-                ),
-                keyboardType: TextInputType.multiline,
-                maxLines: null,
-                minLines: 5,
-                style: theme.textTheme.bodyLarge,
-              ),
-              const Divider(height: 40),
-
-              /// Status Dropdown
-              DropdownButtonFormField<TodoStatus>(
-                value: _status,
-                onChanged: (val) => setState(() => _status = val),
-                decoration: const InputDecoration(labelText: 'Status'),
-                items: TodoStatus.values.map((status) {
-                  return DropdownMenuItem(
-                    value: status,
-                    child: Text(status.name),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-
-              /// Tag Dropdown
-              DropdownButtonFormField<TodoTag>(
-                value: _tag,
-                onChanged: (val) => setState(() => _tag = val),
-                decoration: const InputDecoration(labelText: 'Tag'),
-                items: TodoTag.values.map((tag) {
-                  return DropdownMenuItem(
-                    value: tag,
-                    child: Text(tag.name),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-
-              /// Reminder
-              Row(
-                children: [
-                  const Icon(Icons.alarm),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _reminder != null
-                          ? "Reminder: ${DateFormat('MMM d, h:mm a').format(_reminder!)}"
-                          : "No reminder set",
-                      style: theme.textTheme.bodyLarge,
-                    ),
+                decoration: InputDecoration(
+                  hintText: 'What needs to be done?',
+                  hintStyle: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w300,
                   ),
-                  TextButton(
-                    onPressed: _pickReminder,
-                    child: const Text("Pick"),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                  height: 1.2,
+                ),
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ),
+
+            // Description
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.shadowColor.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextFormField(
+                  controller: _descriptionController,
+                  decoration: InputDecoration(
+                    hintText: 'Add details, notes, or additional context...',
+                    hintStyle: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.4),
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: theme.colorScheme.onSurface,
+                    height: 1.6,
+                  ),
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Reminder (low priority - moved below)
+            if (_reminder != null)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.notifications_none,
+                      size: 16,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      DateFormat('MMM d, h:mm a').format(_reminder!),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: _pickReminder,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.edit,
+                          size: 12,
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 16),
+
+            // Bottom Action
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.shadowColor.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
-
-              /// Submit Button
-              SizedBox(
+              child: SizedBox(
                 width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  icon: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Icon(Icons.check),
-                  label: Text(_isLoading ? 'Creating...' : 'Create Todo'),
-                  onPressed: _isLoading ? null : _submit,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _saveTodo,
                   style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     backgroundColor: theme.colorScheme.primary,
                     foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    disabledBackgroundColor: theme.colorScheme.primary.withOpacity(0.6),
                   ),
+                  child: _isLoading
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Creating...',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Text(
+                          'Create Todo',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -189,17 +298,25 @@ class _CreateTodoState extends ConsumerState<CreateTodo> {
     final date = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
-      lastDate: DateTime(2100),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    if (date != null) {
+
+    if (date != null && mounted) {
       final time = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.now(),
       );
-      if (time != null) {
+
+      if (time != null && mounted) {
         setState(() {
-          _reminder = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+          _reminder = DateTime(
+            date.year,
+            date.month,
+            date.day,
+            time.hour,
+            time.minute,
+          );
         });
       }
     }

@@ -18,7 +18,6 @@ class AuthGate extends ConsumerStatefulWidget {
 }
 
 class _AuthGateState extends ConsumerState<AuthGate> {
-  bool _fcmInitialized = false;
 
   @override
   Widget build(BuildContext context) {
@@ -30,15 +29,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
         if (!isAuthenticated) {
           _logger.i('🔓 User not authenticated, redirecting to login');
-          _fcmInitialized = false; // reset on logout
           return const MyLoginPage();
         }
 
         _logger.i('🔒 User authenticated');
-        if (!_fcmInitialized) {
-          _initializeFCMForAuthenticatedUser();
-        }
-
         return widget.child;
       },
       loading: () => const Scaffold(
@@ -71,19 +65,4 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     );
   }
 
-  void _initializeFCMForAuthenticatedUser() async {
-    try {
-      _fcmInitialized = true;
-      final dio = ref.read(dioProvider);
-
-      _logger.i('🚀 Initializing FCM token for authenticated user');
-
-      await FCMTokenService.initializeFCMToken(dio);
-
-      _logger.i('✅ FCM token successfully initialized');
-    } catch (e) {
-      _logger.e('❌ Error initializing FCM for authenticated user: $e');
-      _fcmInitialized = false; // allow retry on next build
-    }
-  }
 }

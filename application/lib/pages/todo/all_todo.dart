@@ -11,9 +11,6 @@ class AllTodos extends ConsumerWidget {
     final todosAsync = ref.watch(todosProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('All Todos'),
-      ),
       body: todosAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(),
@@ -50,7 +47,6 @@ class AllTodos extends ConsumerWidget {
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 16),
             itemCount: todos.length,
             itemBuilder: (context, index) {
               final todo = todos[index];
