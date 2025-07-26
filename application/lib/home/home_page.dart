@@ -1,7 +1,15 @@
 import 'package:application/pages/event/event.dart';
-import 'package:flutter/material.dart';
 import 'package:application/pages/timetable/time_table.dart';
 import 'package:application/pages/todo/todo.dart';
+import 'package:flutter/material.dart';
+
+class PageItem {
+  final String title;
+  final IconData icon;
+  final Widget page;
+
+  const PageItem({required this.title, required this.icon, required this.page});
+}
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
@@ -13,20 +21,10 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int _currentIndex = 0;
 
-  static const List<Widget> _pages = [
-    TimetablePage(),
-    MyEvents(),
-    MyTodos(),
+  final List<PageItem> _items = const [
+    PageItem(title: "Timetable", icon: Icons.schedule_rounded, page: TimetablePage()),
+    PageItem(title: "Todos", icon: Icons.task_alt_rounded, page: MyTodos()),
   ];
-
-  static const List<String> _titles = ["Timetable", "Events", "Todos"];
-
-  static const List<IconData> _icons = [
-    Icons.schedule_rounded,
-    Icons.event_rounded,
-    Icons.task_alt_rounded,
-  ];
-
 
   @override
   Widget build(BuildContext context) {
@@ -35,23 +33,17 @@ class _MyHomePageState extends State<MyHomePage> {
 
     return Scaffold(
       extendBody: true,
-      backgroundColor: isDarkMode
-          ? const Color(0xFF0A0A0A)
-          : const Color(0xFFF8F9FA),
+      backgroundColor: isDarkMode ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 250),
-        child: _pages[_currentIndex],
+        child: _items[_currentIndex].page,
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: isDarkMode
-              ? Colors.white.withOpacity(0.05)
-              : Colors.white.withOpacity(0.9),
+          color: isDarkMode ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.9),
           border: Border(
             top: BorderSide(
-              color: isDarkMode
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.1),
+              color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
               width: 1,
             ),
           ),
@@ -61,16 +53,15 @@ class _MyHomePageState extends State<MyHomePage> {
             height: 60,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(_pages.length, (index) {
+              children: List.generate(_items.length, (index) {
+                final item = _items[index];
                 final isSelected = index == _currentIndex;
+
                 return GestureDetector(
                   onTap: () => setState(() => _currentIndex = index),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? theme.colorScheme.primary.withOpacity(0.15)
@@ -80,7 +71,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     child: Row(
                       children: [
                         Icon(
-                          _icons[index],
+                          item.icon,
                           size: 24,
                           color: isSelected
                               ? theme.colorScheme.primary
@@ -89,7 +80,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         if (isSelected) ...[
                           const SizedBox(width: 8),
                           Text(
-                            _titles[index],
+                            item.title,
                             style: TextStyle(
                               fontWeight: FontWeight.w500,
                               color: theme.colorScheme.primary,
