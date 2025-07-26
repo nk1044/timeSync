@@ -1,4 +1,3 @@
-import 'package:application/pages/event/event.dart';
 import 'package:application/pages/timetable/time_table.dart';
 import 'package:application/pages/todo/todo.dart';
 import 'package:flutter/material.dart';
