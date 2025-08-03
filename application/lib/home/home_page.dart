@@ -1,3 +1,4 @@
+import 'package:application/pages/event/event.dart';
 import 'package:application/pages/timetable/time_table.dart';
 import 'package:application/pages/todo/todo.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +23,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   final List<PageItem> _items = const [
     PageItem(title: "Timetable", icon: Icons.schedule_rounded, page: TimetablePage()),
+    PageItem(title: "Events", icon: Icons.event, page: MyEvents()),
     PageItem(title: "Todos", icon: Icons.task_alt_rounded, page: MyTodos()),
   ];
 

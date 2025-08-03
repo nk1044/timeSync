@@ -194,9 +194,23 @@ export const getRoutinesForDate = async (req: AuthenticatedRequest, res: NextApi
         { Frequency: "daily" },
         { Frequency: "weekly", Day: dayName }
       ]
-    });
+    }).populate('Event');
 
-    return res.status(200).json(routines);
+    const routinesWithEventMessage = routines.map(r => ({
+      _id: r._id,
+      Event: r.Event._id,
+      startTime: r.startTime,
+      endTime: r.endTime,
+      Day: r.Day,
+      Frequency: r.Frequency,
+      Exception: r.Exception,
+      owner: r.owner,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      eventMessage: r.Event?.message || r.Event?.title || "No event message",
+    }));
+
+    return res.status(200).json(routinesWithEventMessage);
   } catch (error) {
     console.error("Error fetching routines for date:", error);
     return res.status(500).json({ error: "Internal server error" });

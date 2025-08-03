@@ -11,9 +11,6 @@ class AllEvents extends ConsumerWidget {
     final eventAsync = ref.watch(eventProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('All Events'),
-      ),
       body: eventAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(),

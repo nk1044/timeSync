@@ -1,30 +1,11 @@
 import 'package:application/pages/timetable/timetable_provider.dart';
-import 'package:application/pages/user/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'dart:async';
-import 'package:rxdart/rxdart.dart';
-
-
-// Provider for selected date
-final selectedDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
-
-// Provider for current time (updates every minute)
-final currentTimeProvider = StreamProvider<DateTime>((ref) {
-  return Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now())
-      .startWith(DateTime.now());
-});
-
-
-// Provider for fetching events
-final eventsProvider = FutureProvider.family<List<EventItem>, DateTime>((ref, date) {
-  final repository = ref.watch(timetableRepositoryProvider);
-  return repository.getAllEvents(date);
-});
+import 'package:intl/intl.dart';
 
 class TimetablePage extends ConsumerStatefulWidget {
-  const TimetablePage({Key? key}) : super(key: key);
+  const TimetablePage({super.key});
 
   @override
   ConsumerState<TimetablePage> createState() => _TimetablePageState();
@@ -32,520 +13,429 @@ class TimetablePage extends ConsumerStatefulWidget {
 
 class _TimetablePageState extends ConsumerState<TimetablePage> {
   final ScrollController _scrollController = ScrollController();
-  Timer? _scrollTimer;
-  DateTime? _lastScrollTime;
-  final double hourHeight = 80.0; // Height of each hour slot
+  List<Routine> routines = [];
+  bool isLoading = true;
+  DateTime selectedDate = DateTime.now();
+  Timer? _currentTimeTimer;
+
+  // Constants for layout
+  static const double hourHeight = 60.0;
+  static const double timeColumnWidth = 70.0;
+  static const double eventLeftMargin = 5.0;
 
   @override
   void initState() {
     super.initState();
-    // Auto-scroll to current time after a delay
+    _loadRoutines();
+    _startCurrentTimeTimer();
+    _scrollToCurrentTime();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Add a small delay to ensure the widget is fully built
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          _scrollToCurrentTime();
-        }
-      });
+      _scrollToCurrentTime();
     });
   }
 
   @override
   void dispose() {
-    _scrollTimer?.cancel();
     _scrollController.dispose();
+    _currentTimeTimer?.cancel();
     super.dispose();
   }
 
-  void _scrollToCurrentTime() {
-    final now = DateTime.now();
-    final currentHour = now.hour;
-    final currentMinute = now.minute;
-    
-    // Calculate position (each hour is 80 pixels)
-    final position = (currentHour * hourHeight) + (currentMinute * hourHeight / 60.0);
-    
-    if (_scrollController.hasClients) {
-      // Get screen height to center the indicator
-      final screenHeight = MediaQuery.of(context).size.height;
-      final offset = screenHeight / 3; // Show indicator in upper third of screen
-      
-      _scrollController.animateTo(
-        (position - offset).clamp(0.0, _scrollController.position.maxScrollExtent),
-        duration: const Duration(milliseconds: 1000),
-        curve: Curves.easeInOut,
-      );
+  void _startCurrentTimeTimer() {
+    _currentTimeTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  Future<void> _loadRoutines() async {
+    setState(() => isLoading = true);
+    try {
+      final data = await ref
+          .read(routineRepositoryProvider)
+          .getRoutinesByDate(selectedDate);
+      setState(() {
+        routines = data;
+        isLoading = false;
+      });
+
+      // Scroll after UI is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToCurrentTime();
+      });
+    } catch (e) {
+      setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading routines: $e')));
+      }
     }
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: ref.read(selectedDateProvider),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: Colors.blue,
+  Future<void> _pickDate() async {
+  final DateTime? picked = await showDatePicker(
+    context: context,
+    initialDate: selectedDate,
+    firstDate: DateTime(2020),
+    lastDate: DateTime(2100),
+  );
+  if (picked != null && picked != selectedDate) {
+    setState(() {
+      selectedDate = picked;
+    });
+    _loadRoutines(); // reload routines for the new date
+  }
+}
+
+
+  void _scrollToCurrentTime() {
+    if (!_scrollController.hasClients) return;
+
+    final now = DateTime.now();
+    final currentHour = now.hour;
+    final currentMinute = now.minute;
+
+    // Calculate position to center current time
+    final currentTimePosition =
+        (currentHour * hourHeight) + (currentMinute / 60 * hourHeight);
+    final screenHeight = MediaQuery.of(context).size.height;
+    final appBarHeight =
+        AppBar().preferredSize.height + MediaQuery.of(context).padding.top;
+    final dateHeaderHeight = 64.0; // Approximate height of date header
+    final availableHeight = screenHeight - appBarHeight - dateHeaderHeight;
+    final centerOffset = availableHeight / 2;
+
+    final scrollPosition = (currentTimePosition - centerOffset).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+
+    _scrollController.animateTo(
+      scrollPosition,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOut,
+    );
+  }
+
+  List<List<Routine>> _groupOverlappingEvents() {
+    List<List<Routine>> groups = [];
+    List<Routine> sortedRoutines = List.from(routines)
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    for (Routine routine in sortedRoutines) {
+      bool addedToGroup = false;
+
+      for (List<Routine> group in groups) {
+        bool overlaps = group.any(
+          (r) =>
+              routine.startTime.isBefore(r.endTime) &&
+              routine.endTime.isAfter(r.startTime),
+        );
+
+        if (overlaps) {
+          group.add(routine);
+          addedToGroup = true;
+          break;
+        }
+      }
+
+      if (!addedToGroup) {
+        groups.add([routine]);
+      }
+    }
+
+    return groups;
+  }
+
+  double _getMinutesFromMidnight(DateTime time) {
+    return time.hour * 60.0 + time.minute;
+  }
+
+  Widget _buildTimeColumn() {
+    return Container(
+      width: timeColumnWidth,
+      child: Column(
+        children: List.generate(24, (hour) {
+          final time = hour == 0
+              ? '12 AM'
+              : hour < 12
+              ? '$hour AM'
+              : hour == 12
+              ? '12 PM'
+              : '${hour - 12} PM';
+
+          return Container(
+            height: hourHeight,
+            alignment: Alignment.topRight,
+            padding: const EdgeInsets.only(right: 8, top: 2),
+            child: Text(
+              time,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildEventArea() {
+    final overlappingGroups = _groupOverlappingEvents();
+
+    return Expanded(
+      child: Stack(
+        children: [
+          // Hour lines
+          ...List.generate(24, (hour) {
+            return Positioned(
+              top: hour * hourHeight,
+              left: 0,
+              right: 0,
+              child: Container(height: 1, color: Colors.grey[300]),
+            );
+          }),
+
+          // Half-hour lines
+          ...List.generate(24, (hour) {
+            return Positioned(
+              top: hour * hourHeight + hourHeight / 2,
+              left: 0,
+              right: 0,
+              child: Container(height: 0.5, color: Colors.grey[200]),
+            );
+          }),
+
+          // Events
+          ...overlappingGroups.expand((group) {
+            return group.asMap().entries.map((entry) {
+              final index = entry.key;
+              final routine = entry.value;
+              final groupSize = group.length;
+
+              final startMinutes = _getMinutesFromMidnight(routine.startTime);
+              final endMinutes = _getMinutesFromMidnight(routine.endTime);
+              final durationMinutes = endMinutes - startMinutes;
+
+              final top = (startMinutes / 60) * hourHeight;
+              final height = (durationMinutes / 60) * hourHeight;
+
+              // Calculate width and left position for overlapping events
+              final eventWidth = groupSize > 1
+                  ? ((MediaQuery.of(context).size.width -
+                                timeColumnWidth -
+                                eventLeftMargin * 2) /
+                            groupSize) -
+                        2
+                  : MediaQuery.of(context).size.width -
+                        timeColumnWidth -
+                        eventLeftMargin * 2;
+
+              final left = eventLeftMargin + (index * (eventWidth + 2));
+
+              return Positioned(
+                top: top,
+                left: left,
+                width: eventWidth,
+                height: height,
+                child: _buildEventCard(routine, groupSize > 1),
+              );
+            });
+          }),
+
+          // Current time indicator
+          _buildCurrentTimeIndicator(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventCard(Routine routine, bool isOverlapping) {
+    final theme = Theme.of(context);
+    final colors = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.teal,
+      Colors.indigo,
+    ];
+
+    final color = colors[routine.id.hashCode % colors.length];
+    final overlappingColor = isOverlapping ? color.withOpacity(0.8) : color;
+
+    return Container(
+      margin: const EdgeInsets.all(1),
+      decoration: BoxDecoration(
+        color: overlappingColor.withOpacity(0.2),
+        border: Border.all(color: overlappingColor, width: 2),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              routine.event,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: overlappingColor.withOpacity(0.9),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (routine.eventMessage != null) ...[
+              const SizedBox(height: 2),
+              Flexible(
+                child: Text(
+                  routine.eventMessage!,
+                  style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+            const SizedBox(height: 2),
+            Text(
+              '${_formatTime(routine.startTime)} - ${_formatTime(routine.endTime)}',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentTimeIndicator() {
+    final now = DateTime.now();
+    final currentMinutes = _getMinutesFromMidnight(now);
+    final top = (currentMinutes / 60) * hourHeight;
+
+    return Positioned(
+      top: top,
+      left: 0,
+      right: 0,
+      child: Row(
+        children: [
+          Container(
+            width: timeColumnWidth - 10,
+            alignment: Alignment.centerRight,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                _formatTime(now),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
-          child: child!,
-        );
-      },
+          Expanded(child: Container(height: 2, color: Colors.red)),
+        ],
+      ),
     );
-    
-    if (picked != null) {
-      ref.read(selectedDateProvider.notifier).state = picked;
-    }
+  }
+
+  String _formatTime(DateTime time) {
+    final hour = time.hour;
+    final minute = time.minute.toString().padLeft(2, '0');
+
+    if (hour == 0) return '12:$minute AM';
+    if (hour < 12) return '$hour:$minute AM';
+    if (hour == 12) return '12:$minute PM';
+    return '${hour - 12}:$minute PM';
   }
 
   @override
   Widget build(BuildContext context) {
-    final selectedDate = ref.watch(selectedDateProvider);
-    final eventsAsync = ref.watch(eventsProvider(selectedDate));
-    final currentTimeAsync = ref.watch(currentTimeProvider);
-
-    // Auto-scroll when time changes (only for today)
-    currentTimeAsync.whenData((currentTime) {
-      if (_isToday(selectedDate) && _lastScrollTime != null) {
-        final hourDifference = currentTime.hour - _lastScrollTime!.hour;
-        if (hourDifference.abs() >= 1) {
-          // Hour has changed, scroll to new position
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _scrollToCurrentTime();
-            }
-          });
-        }
-      }
-      _lastScrollTime = currentTime;
-    });
-
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        toolbarHeight: kToolbarHeight,
-        automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            // Left: Settings Button
-            IconButton(
-              icon: const Icon(Icons.settings),
-              tooltip: 'Settings',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const MySettings(),
-                    fullscreenDialog: true,
-                  ),
-                );
-              },
-            ),
-
-            // Middle: Title
-            Expanded(
-              child: Center(
-                child: Text(
-                  'Timetable',
-                  style: Theme.of(context).appBarTheme.titleTextStyle,
-                ),
-              ),
-            ),
-            IconButton(
-              onPressed: _scrollToCurrentTime,
-              icon: const Icon(Icons.schedule),
-              tooltip: 'Go to Current Time',
-            ),
-          ],
+        leading: IconButton(
+          icon: const Icon(Icons.today),
+          onPressed: _scrollToCurrentTime,
+          tooltip: 'Go to current time',
         ),
+        title: Stack(
+          alignment: Alignment.center,
+          children: [const Text('Timetable')],
+        ),
+        centerTitle: true, // has no effect when using Stack, but fine to keep
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadRoutines,
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
-      body: Column(
-        children: [
-          // Date Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
               children: [
-                GestureDetector(
-                  onTap: () => _selectDate(context),
+                // Date header
+                Container(
+                  padding: const EdgeInsets.all(16),
                   child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        DateFormat('EEEE, MMMM d, yyyy').format(selectedDate),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                      GestureDetector(
+                        onTap: _pickDate,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              DateFormat('EEEE, MMMM d').format(
+                                selectedDate,
+                              ),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.keyboard_arrow_down,
-                        color: Colors.grey[600],
-                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _isToday(selectedDate) ? 'Today' : _getDayDifference(selectedDate),
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Timetable View
-          Expanded(
-            child: eventsAsync.when(
-              data: (events) => _buildTimetableView(events, currentTimeAsync, selectedDate),
-              loading: () => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              error: (error, stack) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      color: Colors.red[300],
-                      size: 48,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Failed to load events',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        ref.invalidate(eventsProvider(selectedDate));
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildTimetableView(List<EventItem> events, AsyncValue<DateTime> currentTimeAsync, DateTime selectedDate) {
-    return Stack(
-      children: [
-        // Main timetable
-        SingleChildScrollView(
-          controller: _scrollController,
-          child: Container(
-            // margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                // Hour slots (background grid)
-                Column(
-                  children: List.generate(24, (hour) {
-                    return _buildHourSlot(hour);
-                  }),
-                ),
-                // Events overlay
-                ..._buildEventOverlays(events),
-              ],
-            ),
-          ),
-        ),
-        
-        // Current time indicator (always show, but only animate for today)
-        currentTimeAsync.when(
-          data: (currentTime) => _buildTimeIndicator(currentTime),
-          loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHourSlot(int hour) {
-    final timeString = DateFormat('h:mm a').format(DateTime(2024, 1, 1, hour));
-    
-    return Container(
-      height: hourHeight,
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: Colors.grey[200]!,
-            width: hour == 0 ? 0 : 0.5,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Time label
-          Container(
-            width: 70,
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              timeString,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-          
-          // Vertical separator
-          Container(
-            width: 1,
-            height: double.infinity,
-            color: Colors.grey[200],
-          ),
-          
-          // Empty space for events (will be overlaid)
-          const Expanded(child: SizedBox()),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildEventOverlays(List<EventItem> events) {
-    return events.map((event) => _buildEventOverlay(event)).toList();
-  }
-
-  Widget _buildEventOverlay(EventItem eventItem) {
-    final startTime = _parseTimeToMinutes(eventItem.startTime);
-    final endTime = _parseTimeToMinutes(eventItem.endTime);
-    
-    // Calculate position and height
-    final topPosition = (startTime / 60.0) * hourHeight;
-    final eventHeight = ((endTime - startTime) / 60.0) * hourHeight;
-    
-    final colors = _getEventColors(eventItem.event.tag);
-    
-    return Positioned(
-      top: topPosition,
-      left: 71, // Start after time label and separator
-      right: 0,
-      height: eventHeight,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: colors['background'],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: colors['border']!,
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              eventItem.event.title,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: colors['text'],
-              ),
-              maxLines: eventHeight > 40 ? 2 : 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (eventHeight > 40) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: colors['tag'],
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      eventItem.event.tag,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: colors['tagText'],
+                // Calendar content
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    child: SizedBox(
+                      height: 24 * hourHeight,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [_buildTimeColumn(), _buildEventArea()],
                       ),
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    '${eventItem.startTime} - ${eventItem.endTime}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: colors['time'],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTimeIndicator(DateTime currentTime) {
-    final hour = currentTime.hour;
-    final minute = currentTime.minute;
-    final position = (hour * hourHeight) + (minute * hourHeight / 60.0);
-    
-    return Positioned(
-      top: position + 16, // Offset for margin
-      left: 16,
-      right: 16,
-      child: Row(
-        children: [
-          // Time circle with current time
-          Container(
-            width: 70,
-            alignment: Alignment.center,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.red.withOpacity(0.3),
-                        blurRadius: 6,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
                 ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    DateFormat('HH:mm').format(currentTime),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 100)
               ],
             ),
-          ),
-          
-          // Animated line
-          Expanded(
-            child: Container(
-              height: 2,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.red,
-                    Colors.red.withOpacity(0.3),
-                    Colors.transparent,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
-  }
-
-  // Convert time string to minutes from midnight
-  int _parseTimeToMinutes(String timeString) {
-    try {
-      final parts = timeString.split(':');
-      final hours = int.parse(parts[0]);
-      final minutes = int.parse(parts[1]);
-      return hours * 60 + minutes;
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  Map<String, Color> _getEventColors(String tag) {
-    final colors = {
-      'CLASS': {
-        'background': Colors.blue[50]!,
-        'border': Colors.blue[200]!,
-        'text': Colors.blue[800]!,
-        'tag': Colors.blue[100]!,
-        'tagText': Colors.blue[700]!,
-        'time': Colors.blue[600]!,
-      },
-      'PERSONAL': {
-        'background': Colors.green[50]!,
-        'border': Colors.green[200]!,
-        'text': Colors.green[800]!,
-        'tag': Colors.green[100]!,
-        'tagText': Colors.green[700]!,
-        'time': Colors.green[600]!,
-      }
-    };
-    
-    return colors[tag] ?? colors['PERSONAL']!;
-  }
-
-  bool _isToday(DateTime date) {
-    final now = DateTime.now();
-    return date.year == now.year && 
-           date.month == now.month && 
-           date.day == now.day;
-  }
-
-  String _getDayDifference(DateTime date) {
-    final now = DateTime.now();
-    final difference = date.difference(DateTime(now.year, now.month, now.day)).inDays;
-    
-    if (difference == 1) return 'Tomorrow';
-    if (difference == -1) return 'Yesterday';
-    if (difference > 1) return 'In $difference days';
-    if (difference < -1) return '${difference.abs()} days ago';
-    
-    return 'Today';
   }
 }

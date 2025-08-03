@@ -10,7 +10,6 @@ class EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isClass = event.tag == 'CLASS';
     final updatedAt = DateFormat.yMMMd().add_jm().format(event.updatedAt);
     final message = event.message.isNotEmpty ? event.message : 'No message provided';
 
@@ -36,12 +35,6 @@ class EventCard extends StatelessWidget {
             ),
           ],
         ),
-        trailing: isClass
-            ? const Icon(
-                Icons.class_,
-                color: Colors.orangeAccent,
-              )
-            : null,
         onTap: () {
           Navigator.push(
             context,
