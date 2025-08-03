@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 final dioProvider = Provider<Dio>((ref) {
-  final baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.11:3000/api';
+  // final baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://192.168.1.11:3000/api';
+  final baseUrl = 'http://127.0.0.1:3000/api';
   final dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,

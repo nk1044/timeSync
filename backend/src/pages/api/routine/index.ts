@@ -1,8 +1,8 @@
 import { connectDB } from "@/lib/config/db";
 import type { NextApiResponse } from "next";
-import { createWeek, getWeekData, updateWeekMetadata, deleteWeek } from "@/lib/controllers/week.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
 import { AuthenticatedRequest } from "@/lib/models/user.model";
+import { createRoutine, deleteRoutine, getAllRoutines } from "@/lib/controllers/routine.controller";
 
 export default withAuth(async function handler(
     req: AuthenticatedRequest,
@@ -10,17 +10,14 @@ export default withAuth(async function handler(
 ) {
     try {
         await connectDB();
+
         switch (req.method) {
-            case "POST":
-                return await createWeek(req, res);
             case "GET":
-                return await getWeekData(req, res);
-            case "PUT":
-                return await updateWeekMetadata(req, res);
-            case "DELETE":
-                return await deleteWeek(req, res);
+                return await getAllRoutines(req, res);
+            case "POST":
+                return await createRoutine(req, res);
             default:
-                res.setHeader("Allow", ["POST", "GET", "PUT", "DELETE"]);
+                res.setHeader("Allow", ["GET", "POST"]);
                 return res.status(405).end(`Method ${req.method} Not Allowed`);
         }
     } catch (error) {

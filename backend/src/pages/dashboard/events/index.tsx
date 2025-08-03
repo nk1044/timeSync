@@ -1,8 +1,6 @@
 'use client';
-
 import { withDashboardLayout } from '@/components/withDashboardLayout';
 import React, { useEffect, useState } from 'react';
-import TodoCard from '@/components/cards/TodoCard';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/router';

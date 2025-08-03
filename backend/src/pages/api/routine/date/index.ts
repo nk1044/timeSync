@@ -1,18 +1,16 @@
-import { connectDB } from "@/lib/config/db";
-import type { NextApiRequest, NextApiResponse } from "next";
-import {getDayByName } from "@/lib/controllers/week.controller";
+import {NextApiResponse } from "next";
 import { withAuth } from "@/lib/middleware/authMiddleware";
 import { AuthenticatedRequest } from "@/lib/models/user.model";
+import { getRoutinesForDate } from "@/lib/controllers/routine.controller";
 
 export default withAuth(async function handler(
     req: AuthenticatedRequest,
-    res: NextApiResponse,
+    res: NextApiResponse
 ) {
     try {
-        await connectDB();
         switch (req.method) {
             case "GET":
-                return await getDayByName(req, res);
+                return await getRoutinesForDate(req, res);
             default:
                 res.setHeader("Allow", ["GET"]);
                 return res.status(405).end(`Method ${req.method} Not Allowed`);

@@ -26,12 +26,13 @@ export function withAuth(
           id: session.user.id,
         };
         logger.info(`✅ Session found for user: ${session.user.email}`);
+        console.log(session);
         return handler(req as AuthenticatedRequest, res);
       }
 
       // 2️⃣ Check Bearer token in Authorization header (e.g. from mobile apps)
       const authHeader = req.headers.authorization;
-      // console.log("🔍 Authorization header:", authHeader);
+      console.log("🔍 Authorization header:", authHeader);
       logger.info("🔍 Checking Authorization header");
       if (authHeader?.startsWith("Bearer ")) {
         const token = authHeader.split(" ")[1];

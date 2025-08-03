@@ -12,7 +12,6 @@ import PopUp from '@/components/tools/popup';
 const defaultData = {
     title: '',
     description: '',
-    tag: 'CLASS',
     message: '',
 };
 
@@ -35,7 +34,6 @@ function EditEvent() {
                 const fetchedData = {
                     title: event.title || '',
                     description: event.description || '',
-                    tag: event.tag || 'CLASS',
                     message: event.message || '',
                 };
 
@@ -141,23 +139,6 @@ function EditEvent() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm mb-1">Tag</label>
-                                <select
-                                    name="tag"
-                                    value={formData.tag}
-                                    onChange={handleChange}
-                                    className="w-full bg-neutral-800 px-4 py-3 rounded border border-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    {tagOptions.map(tag => (
-                                        <option key={tag} value={tag}>
-                                            {tag}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
 
                         <div>
                             <label className="block text-sm mb-1">Message</label>

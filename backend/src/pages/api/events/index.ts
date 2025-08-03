@@ -1,5 +1,5 @@
 import { connectDB } from "@/lib/config/db";
-import type { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiResponse } from "next";
 import {createEvent, getAllEvents} from "@/lib/controllers/event.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
 import { AuthenticatedRequest } from "@/lib/models/user.model";

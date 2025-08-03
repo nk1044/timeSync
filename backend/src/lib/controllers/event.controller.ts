@@ -25,7 +25,7 @@ export const createEvent = async (req: AuthenticatedRequest, res: NextApiRespons
       description,
       message,
       bucket,
-      owner: user.email,
+      owner: existingUser._id,
     });
 
     return res.status(201).json(newEvent);
@@ -47,9 +47,9 @@ export const getAllEvents = async (req: AuthenticatedRequest, res: NextApiRespon
       return res.status(404).json({ error: "User not found" });
     }
 
-    const events = await Event.find({ owner: user.email }).sort({ createdAt: -1 });
+    const events = await Event.find({ owner: existingUser._id }).sort({ createdAt: -1 });
 
-    return res.status(200).json(events);
+    return res.status(200).json({message:"events fetched successfully", events: events});
   } catch (error) {
     console.error("Get Events Error:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -73,13 +73,13 @@ export const getEventById = async (req: AuthenticatedRequest, res: NextApiRespon
       return res.status(404).json({ error: "User not found" });
     }
 
-    const event = await Event.findOne({ _id: id, owner: user.email });
+    const event = await Event.findOne({ _id: id, owner: existingUser._id });
 
     if (!event) {
       return res.status(404).json({ error: "Event not found" });
     }
 
-    return res.status(200).json(event);
+    return res.status(200).json({message:"event fetched successfully", event: event});
   } catch (error) {
     console.error("Get Event By ID Error:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -106,7 +106,7 @@ export const updateEvent = async (req: AuthenticatedRequest, res: NextApiRespons
     }
 
     const updatedEvent = await Event.findOneAndUpdate(
-      { _id: id, owner: user.email },
+      { _id: id, owner: existingUser._id },
       { title, description, message, bucket },
       { new: true }
     );
@@ -140,7 +140,7 @@ export const deleteEvent = async (req: AuthenticatedRequest, res: NextApiRespons
       return res.status(400).json({ error: "Invalid event ID" });
     }
 
-    const deleted = await Event.findOneAndDelete({ _id: id, owner: user.email });
+    const deleted = await Event.findOneAndDelete({ _id: id, owner: existingUser._id });
 
     if (!deleted) {
       return res.status(404).json({ error: "Event not found or unauthorized" });

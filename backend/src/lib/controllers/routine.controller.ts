@@ -7,29 +7,27 @@ import mongoose from "mongoose";
 export const createRoutine = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
     const user = req.user;
-
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-
     const existingUser = await User.findOne({ email: user.email });
     if (!existingUser) {
       return res.status(404).json({ error: "User not found" });
     }
+    const { Event, startTime, endTime, Day, Frequency, Exception } = req.body;
 
-    const { Event, timings, Day, Frequency, Exception } = req.body;
-
-    if (!Event || !timings?.startTime || !timings?.endTime || !Day || !Frequency) {
+    if (!Event || !startTime || !endTime || !Day || !Frequency) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     const newRoutine = await RoutineCard.create({
       Event,
-      timings,
+      startTime,
+      endTime,
       Day,
       Frequency,
       Exception,
-      owner: user.email,
+      owner: existingUser._id,
     });
 
     return res.status(201).json(newRoutine);
@@ -53,7 +51,7 @@ export const getAllRoutines = async (req: AuthenticatedRequest, res: NextApiResp
       return res.status(404).json({ error: "User not found" });
     }
 
-    const routines = await RoutineCard.find({ owner: user.email }).sort({ createdAt: -1 });
+    const routines = await RoutineCard.find({ owner: existingUser._id }).sort({ createdAt: -1 });
 
     return res.status(200).json(routines);
   } catch (error) {
@@ -81,7 +79,7 @@ export const getRoutineById = async (req: AuthenticatedRequest, res: NextApiResp
       return res.status(400).json({ error: "Invalid Routine ID" });
     }
 
-    const routine = await RoutineCard.findOne({ _id: id, owner: user.email });
+    const routine = await RoutineCard.findOne({ _id: id, owner: existingUser._id });
 
     if (!routine) {
       return res.status(404).json({ error: "Routine not found" });
@@ -115,7 +113,7 @@ export const updateRoutine = async (req: AuthenticatedRequest, res: NextApiRespo
     }
 
     const updatedRoutine = await RoutineCard.findOneAndUpdate(
-      { _id: id, owner: user.email },
+      { _id: id, owner: existingUser._id },
       { Event, timings, Day, Frequency, Exception },
       { new: true }
     );
@@ -150,7 +148,7 @@ export const deleteRoutine = async (req: AuthenticatedRequest, res: NextApiRespo
       return res.status(400).json({ error: "Invalid Routine ID" });
     }
 
-    const deleted = await RoutineCard.findOneAndDelete({ _id: id, owner: user.email });
+    const deleted = await RoutineCard.findOneAndDelete({ _id: id, owner: existingUser._id });
 
     if (!deleted) {
       return res.status(404).json({ error: "Routine not found or unauthorized" });
@@ -170,7 +168,7 @@ const getDayNameFromIST = (dateStr: string): string => {
   return dayName;
 };
 
-// GET /api/routines/by-date?date=2025-07-27
+// GET /api/routines/date?date=2025-07-27
 export const getRoutinesForDate = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
     const { date } = req.query;
@@ -191,7 +189,7 @@ export const getRoutinesForDate = async (req: AuthenticatedRequest, res: NextApi
     const dayName = getDayNameFromIST(date);
 
     const routines = await RoutineCard.find({
-      owner: existingUser.email,
+      owner: existingUser._id,
       $or: [
         { Frequency: "daily" },
         { Frequency: "weekly", Day: dayName }
