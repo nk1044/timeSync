@@ -331,7 +331,6 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   }
 
   Widget _buildEventCard(Routine routine, bool isOverlapping) {
-    final theme = Theme.of(context);
     final colors = [
       Colors.blue,
       Colors.green,
