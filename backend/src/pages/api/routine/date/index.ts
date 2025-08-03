@@ -2,12 +2,14 @@ import {NextApiResponse } from "next";
 import { withAuth } from "@/lib/middleware/authMiddleware";
 import { AuthenticatedRequest } from "@/lib/models/user.model";
 import { getRoutinesForDate } from "@/lib/controllers/routine.controller";
+import { connectDB } from "@/lib/config/db";
 
 export default withAuth(async function handler(
     req: AuthenticatedRequest,
     res: NextApiResponse
 ) {
     try {
+        await connectDB();
         switch (req.method) {
             case "GET":
                 return await getRoutinesForDate(req, res);

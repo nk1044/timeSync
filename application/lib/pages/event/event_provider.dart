@@ -66,7 +66,7 @@ class EventRepository {
   Future<Event> createEvent(EventCreateRequest data) async {
     try {
       final res = await _dio.post('/events', data: data.toJson());
-      return Event.fromJson(res.data['event']);
+      return Event.fromJson(res.data);
     } catch (e) {
       _logger.e('Error creating event: $e');
       rethrow;
@@ -85,7 +85,7 @@ class EventRepository {
   Future<Event> updateEvent(String id, EventCreateRequest updatedData) async {
     try {
       final res = await _dio.put('/events/$id', data: updatedData.toJson());
-      return Event.fromJson(res.data['event']);
+      return Event.fromJson(res.data);
     } catch (e) {
       _logger.e('Error updating event: $e');
       rethrow;

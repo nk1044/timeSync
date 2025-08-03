@@ -2,7 +2,12 @@ import 'package:application/pages/timetable/timetable_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:logger/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+final logger = Logger();
 
 class TimetablePage extends ConsumerStatefulWidget {
   const TimetablePage({super.key});
@@ -17,21 +22,22 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   bool isLoading = true;
   DateTime selectedDate = DateTime.now();
   Timer? _currentTimeTimer;
+  bool _hasScrolledToCurrentTime = false;
 
   // Constants for layout
   static const double hourHeight = 60.0;
   static const double timeColumnWidth = 70.0;
   static const double eventLeftMargin = 5.0;
 
+  // Local storage keys
+  static const String _routinesCacheKey = 'cached_routines';
+  static const String _cacheeDateKey = 'cached_date';
+
   @override
   void initState() {
     super.initState();
     _loadRoutines();
     _startCurrentTimeTimer();
-    _scrollToCurrentTime();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToCurrentTime();
-    });
   }
 
   @override
@@ -47,49 +53,112 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     });
   }
 
-  Future<void> _loadRoutines() async {
+  Future<void> _loadRoutines({bool forceRefresh = false}) async {
     setState(() => isLoading = true);
+    
     try {
-      final data = await ref
-          .read(routineRepositoryProvider)
-          .getRoutinesByDate(selectedDate);
+      List<Routine> loadedRoutines = [];
+      
+      if (!forceRefresh) {
+        // Try to load from cache first
+        loadedRoutines = await _loadFromCache();
+      }
+      
+      if (loadedRoutines.isEmpty || forceRefresh) {
+        // Load from API if cache is empty or force refresh
+        loadedRoutines = await ref
+            .read(routineRepositoryProvider)
+            .getRoutinesByDate(selectedDate);
+        
+        // Cache the routines
+        await _saveToCache(loadedRoutines);
+      }
+      
       setState(() {
-        routines = data;
+        routines = loadedRoutines;
         isLoading = false;
       });
 
-      // Scroll after UI is ready
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToCurrentTime();
-      });
+      // Schedule scroll to current time after UI is built
+      _scheduleScrollToCurrentTime();
+      
     } catch (e) {
       setState(() => isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error loading routines: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading routines: $e'))
+        );
       }
     }
   }
 
-  Future<void> _pickDate() async {
-  final DateTime? picked = await showDatePicker(
-    context: context,
-    initialDate: selectedDate,
-    firstDate: DateTime(2020),
-    lastDate: DateTime(2100),
-  );
-  if (picked != null && picked != selectedDate) {
-    setState(() {
-      selectedDate = picked;
-    });
-    _loadRoutines(); // reload routines for the new date
+  Future<List<Routine>> _loadFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedDate = prefs.getString(_cacheeDateKey);
+      final todayString = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      
+      // Only use cache if it's for today's date
+      if (cachedDate == todayString) {
+        final cachedData = prefs.getString(_routinesCacheKey);
+        if (cachedData != null) {
+          final List<dynamic> jsonList = json.decode(cachedData);
+          return jsonList.map((json) => Routine.fromJson(json)).toList();
+        }
+      }
+    } catch (e) {
+      logger.i('Error loading from cache: $e');
+    }
+    return [];
   }
-}
 
+  Future<void> _saveToCache(List<Routine> routines) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final todayString = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final jsonString = json.encode(routines.map((r) => r.toJson()).toList());
+      
+      await prefs.setString(_routinesCacheKey, jsonString);
+      await prefs.setString(_cacheeDateKey, todayString);
+    } catch (e) {
+      print('Error saving to cache: $e');
+    }
+  }
+
+  void _scheduleScrollToCurrentTime() {
+    if (!_hasScrolledToCurrentTime) {
+      // Use multiple approaches to ensure scrolling happens
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToCurrentTime();
+      });
+      
+      // Also schedule a delayed scroll as a fallback
+      Timer(const Duration(milliseconds: 100), () {
+        if (mounted && !_hasScrolledToCurrentTime) {
+          _scrollToCurrentTime();
+        }
+      });
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && picked != selectedDate) {
+      setState(() {
+        selectedDate = picked;
+        _hasScrolledToCurrentTime = false; // Reset scroll flag for new date
+      });
+      _loadRoutines(forceRefresh: true); // Force refresh for different dates
+    }
+  }
 
   void _scrollToCurrentTime() {
-    if (!_scrollController.hasClients) return;
+    if (!_scrollController.hasClients || _hasScrolledToCurrentTime) return;
 
     final now = DateTime.now();
     final currentHour = now.hour;
@@ -114,7 +183,16 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
       scrollPosition,
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeOut,
-    );
+    ).then((_) {
+      _hasScrolledToCurrentTime = true;
+    });
+  }
+
+  void _forceRefresh() {
+    setState(() {
+      _hasScrolledToCurrentTime = false;
+    });
+    _loadRoutines(forceRefresh: true);
   }
 
   List<List<Routine>> _groupOverlappingEvents() {
@@ -367,18 +445,23 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.today),
-          onPressed: _scrollToCurrentTime,
+          onPressed: () {
+            setState(() {
+              _hasScrolledToCurrentTime = false;
+            });
+            _scrollToCurrentTime();
+          },
           tooltip: 'Go to current time',
         ),
         title: Stack(
           alignment: Alignment.center,
           children: [const Text('Timetable')],
         ),
-        centerTitle: true, // has no effect when using Stack, but fine to keep
+        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadRoutines,
+            onPressed: _forceRefresh,
             tooltip: 'Refresh',
           ),
         ],

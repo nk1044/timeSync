@@ -2,6 +2,7 @@ import type { NextApiResponse } from "next";
 import { RoutineCard } from "@/lib/models/RoutineCard.model";
 import { User, AuthenticatedRequest } from "@/lib/models/user.model"
 import mongoose from "mongoose";
+import { DateTime } from 'luxon';
 
 // @route   POST /api/routines
 export const createRoutine = async (req: AuthenticatedRequest, res: NextApiResponse) => {
@@ -10,16 +11,19 @@ export const createRoutine = async (req: AuthenticatedRequest, res: NextApiRespo
     if (!user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
+
     const existingUser = await User.findOne({ email: user.email });
     if (!existingUser) {
       return res.status(404).json({ error: "User not found" });
     }
+
     const { Event, startTime, endTime, Day, Frequency, Exception } = req.body;
 
     if (!Event || !startTime || !endTime || !Day || !Frequency) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Store as ISO string or Date, or just the time as a string (if schema allows)
     const newRoutine = await RoutineCard.create({
       Event,
       startTime,
@@ -173,7 +177,7 @@ export const getRoutinesForDate = async (req: AuthenticatedRequest, res: NextApi
   try {
     const { date } = req.query;
     const user = req.user;
-    if (!user) {
+    if (!user || !user.email) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 

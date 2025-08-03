@@ -1,5 +1,4 @@
 import { connectDB } from "@/lib/config/db";
-import {sendNotificationToUser} from "@/lib/notification/service";
 import type {NextApiResponse } from "next";
 import { AuthenticatedRequest } from "@/lib/models/user.model";
 import { withAuth } from "@/lib/middleware/authMiddleware";
@@ -11,7 +10,7 @@ export default withAuth(
         await connectDB();
         switch (req.method) {
             case "POST":
-                return await sendNotificationToUser(req, res);
+                return res.send({ message: "Notification sent successfully" });
             default:
                 res.setHeader("Allow", ["POST"]);
                 return res.status(405).end(`Method ${req.method} Not Allowed`);

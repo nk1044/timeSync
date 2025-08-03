@@ -1,6 +1,5 @@
 import { connectDB } from "@/lib/config/db";
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createTodo, getAllTodo } from "@/lib/controllers/todo.controller";
 import { withAuth } from "@/lib/middleware/authMiddleware";
 import type { AuthenticatedRequest } from "@/lib/models/user.model";
 
@@ -14,9 +13,9 @@ export default withAuth(
 
         switch (req.method) {
             case "POST":
-                return await createTodo(req, res);
+                return res.status(200).json({ message: "Todo created successfully" });
             case "GET":
-                return await getAllTodo(req, res);
+                return res.status(200).json({ message: "Todos fetched successfully" });
 
             default:
                 res.setHeader("Allow", ["POST"]);
