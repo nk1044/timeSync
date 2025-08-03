@@ -198,7 +198,7 @@ export const getRoutinesForDate = async (req: AuthenticatedRequest, res: NextApi
 
     const routinesWithEventMessage = routines.map(r => ({
       _id: r._id,
-      Event: r.Event._id,
+      Event: r.Event.title || r.Event._id || "No event title",
       startTime: r.startTime,
       endTime: r.endTime,
       Day: r.Day,
