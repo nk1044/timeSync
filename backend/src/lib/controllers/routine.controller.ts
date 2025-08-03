@@ -2,7 +2,7 @@ import type { NextApiResponse } from "next";
 import { RoutineCard } from "@/lib/models/RoutineCard.model";
 import { User, AuthenticatedRequest } from "@/lib/models/user.model"
 import mongoose from "mongoose";
-import { DateTime } from 'luxon';
+import { Event } from "@/lib/models/event.model";
 
 // @route   POST /api/routines
 export const createRoutine = async (req: AuthenticatedRequest, res: NextApiResponse) => {
@@ -198,7 +198,7 @@ export const getRoutinesForDate = async (req: AuthenticatedRequest, res: NextApi
         { Frequency: "daily" },
         { Frequency: "weekly", Day: dayName }
       ]
-    }).populate('Event');
+    }).populate({ path: "event", model: Event });
 
     const routinesWithEventMessage = routines.map(r => ({
       _id: r._id,
