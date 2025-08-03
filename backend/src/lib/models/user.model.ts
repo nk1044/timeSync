@@ -12,9 +12,6 @@ export interface IUser {
     name: string;
     email: string;
     image?: string;
-    todos: string[];
-    fcmToken?: string;
-    timeTables: string[];
 }
 
 const UserSchema = new Schema({
@@ -30,16 +27,6 @@ const UserSchema = new Schema({
         trim: true,
     },
     image:{
-        type: String,
-        trim: true,
-    },
-    todos:[
-        {
-            type: Schema.Types.ObjectId,
-            ref: "Todo",
-        }
-    ],
-    fcmToken: {
         type: String,
         trim: true,
     },
