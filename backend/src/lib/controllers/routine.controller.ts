@@ -198,7 +198,7 @@ export const getRoutinesForDate = async (req: AuthenticatedRequest, res: NextApi
         { Frequency: "daily" },
         { Frequency: "weekly", Day: dayName }
       ]
-    }).populate({ path: "event", model: Event });
+    }).populate({ path: "Event", model: Event });
 
     const routinesWithEventMessage = routines.map(r => ({
       _id: r._id,
