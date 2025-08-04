@@ -25,9 +25,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   bool _hasScrolledToCurrentTime = false;
 
   // Constants for layout
-  static const double hourHeight = 60.0;
+  static const double hourHeight = 70.0;
   static const double timeColumnWidth = 70.0;
-  static const double eventLeftMargin = 5.0;
+  static const double eventLeftMargin = 3.0;
 
   // Local storage keys
   static const String _routinesCacheKey = 'cached_routines';
@@ -344,14 +344,14 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     final overlappingColor = isOverlapping ? color.withOpacity(0.8) : color;
 
     return Container(
-      margin: const EdgeInsets.all(1),
+      margin: const EdgeInsets.fromLTRB(2, 2, 5, 2),
       decoration: BoxDecoration(
         color: overlappingColor.withOpacity(0.2),
         border: Border.all(color: overlappingColor, width: 2),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
