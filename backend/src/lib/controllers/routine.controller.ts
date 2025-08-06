@@ -3,6 +3,10 @@ import { RoutineCard } from "@/lib/models/RoutineCard.model";
 import { User, AuthenticatedRequest } from "@/lib/models/user.model"
 import mongoose from "mongoose";
 import { Event } from "@/lib/models/event.model";
+import { Redis } from '@upstash/redis'
+
+const redis = Redis.fromEnv()
+
 
 // @route   POST /api/routines
 export const createRoutine = async (req: AuthenticatedRequest, res: NextApiResponse) => {
@@ -172,13 +176,18 @@ const getDayNameFromIST = (dateStr: string): string => {
   return dayName;
 };
 
-// GET /api/routines/date?date=2025-07-27
+
 export const getRoutinesForDate = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
     const { date } = req.query;
     const user = req.user;
+
     if (!user || !user.email) {
       return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!date || typeof date !== "string") {
+      return res.status(400).json({ error: "Missing or invalid date query params" });
     }
 
     const existingUser = await User.findOne({ email: user.email });
@@ -186,10 +195,16 @@ export const getRoutinesForDate = async (req: AuthenticatedRequest, res: NextApi
       return res.status(404).json({ error: "User not found" });
     }
 
-    if (!date || typeof date !== "string") {
-      return res.status(400).json({ error: "Missing or invalid date query params" });
+    const cacheKey = `routines:${existingUser._id}:${date}`;
+
+    // Try to fetch from cache first
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      console.log("✅ Cache hit:", cacheKey);
+      return res.status(200).json(cached);
     }
 
+    // Cache miss → Fetch from DB
     const dayName = getDayNameFromIST(date);
 
     const routines = await RoutineCard.find({
@@ -214,9 +229,13 @@ export const getRoutinesForDate = async (req: AuthenticatedRequest, res: NextApi
       eventMessage: r.Event?.message || r.Event?.title || "No event message",
     }));
 
+    // Cache the result for 24 hours
+    await redis.set(cacheKey, routinesWithEventMessage, { ex: 60 * 60 * 24 });
+
     return res.status(200).json(routinesWithEventMessage);
   } catch (error) {
     console.error("Error fetching routines for date:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
